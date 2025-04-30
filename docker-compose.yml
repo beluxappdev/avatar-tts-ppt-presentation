@@ -1,19 +1,10 @@
-version: '3'
-
+version: '3.8'
 services:
-  web:
-    build: .
+  ppt-api:
+    build:
+      context: ./src/api/
+      dockerfile: Dockerfile
     ports:
-      - "5000:5000"
-    volumes:
-      - ./uploads:/app/uploads
-      - ./processed:/app/processed
+      - "8080:80"
     env_file:
       - .env
-    environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=production
-      # Modify this to 0.0.0.0 to make the app accessible outside the container
-      - HOST=0.0.0.0
-    command: python app.py
-    restart: unless-stopped

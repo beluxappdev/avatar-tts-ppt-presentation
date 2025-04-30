@@ -1,4 +1,10 @@
-SPEECH_ENDPOINT=
-SPEECH_KEY=
-AZURE_STORAGE_CONNECTION_STRING=
-AZURE_STORAGE_CONTAINER=slides
+AzureAd__TenantId=your-tenant-id
+AzureAd__ClientId=your-client-id
+AzureAd__ClientSecret=your-client-secret
+AzureServices__CosmosDb__Endpoint=your-cosmosdb-endpoint
+AzureServices__CosmosDb__Database=your-cosmosdb-database
+AzureServices__CosmosDb__Container=your-cosmosdb-container
+AzureServices__BlobStorage__Endpoint=your-storage-endpoint
+AzureServices__BlobStorage__Container=your-container-name
+AzureServices__ServiceBus__Namespace=your-servicebus-namespace
+AzureServices__ServiceBus__Topic=your-servicebus-topic
