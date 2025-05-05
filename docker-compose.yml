@@ -1,10 +1,31 @@
+
 version: '3.8'
 services:
-  ppt-api:
+  api:
     build:
       context: ./src/api/
       dockerfile: Dockerfile
     ports:
       - "8080:80"
+    env_file:
+      - .env
+  image-extractor:
+    build:
+      context: ./src/extractors/
+      dockerfile: Dockerfile
+      args:
+        - EXTRACTOR_TYPE=image_extractor
+    environment:
+      - EXTRACTOR_TYPE=image_extractor
+    env_file:
+      - .env
+  script-extractor:
+    build:
+      context: ./src/extractors/
+      dockerfile: Dockerfile
+      args:
+        - EXTRACTOR_TYPE=script_extractor
+    environment:
+      - EXTRACTOR_TYPE=script_extractor
     env_file:
       - .env
