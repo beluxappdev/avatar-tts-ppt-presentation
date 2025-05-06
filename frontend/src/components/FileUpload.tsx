@@ -9,11 +9,9 @@ import {
   Alert,
   AlertTitle 
 } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { ReactComponent as PowerPointLogo } from '../assets/powerpoint.svg';
 import axios from 'axios';
 
-// TODO: Point to backend
 const API_URL = 'http://localhost:8080/api/save_ppt';
 
 const FileUpload: React.FC = () => {
@@ -83,7 +81,7 @@ const FileUpload: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-    //   formData.append('user_id', 'tenant123');
+      formData.append('userId', 'tenant123');
 
       const response = await axios.post(API_URL, formData, {
         headers: {
@@ -114,6 +112,23 @@ const FileUpload: React.FC = () => {
   return (
     <Card sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
       <CardContent>
+        {uploadStatus && !uploadStatus.success && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <AlertTitle>Error</AlertTitle>
+            {uploadStatus.message}
+          </Alert>
+        )}
+        {uploadStatus && uploadStatus.success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            <AlertTitle>Success</AlertTitle>
+            {uploadStatus.message}
+            {uploadStatus.fileId && (
+              <Typography variant="body2">
+                File ID: {uploadStatus.fileId}
+              </Typography>
+            )}
+          </Alert>
+        )}
         <Box
           sx={{
             border: isDragging ? '2px dashed primary.main' : '2px dashed grey.400',
