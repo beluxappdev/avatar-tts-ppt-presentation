@@ -1,6 +1,21 @@
+
 version: '3.8'
 services:
-  ppt-api:
+  ui:
+    build:
+      context: ./src/ui/
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_BASE_URL=http://localhost:8080
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost:8080
+    env_file:
+      - .env
+    networks:
+      - api-network
+  api:
     build:
       context: ./src/api/
       dockerfile: Dockerfile
