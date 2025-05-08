@@ -1,6 +1,7 @@
-import React from 'react';
-import { CssBaseline, Container, ThemeProvider, createTheme, AppBar, Toolbar, Typography, Box } from '@mui/material';
+import React, { useState } from 'react';
+import { CssBaseline, Container, ThemeProvider, createTheme, AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
 import FileUpload from './components/FileUpload';
+import SlideEditor from './components/SlideEditor';
 
 // theme instance, change later
 const theme = createTheme({
@@ -15,6 +16,19 @@ const theme = createTheme({
 });
 
 const App: React.FC = () => {
+  const [showSlideEditor, setShowSlideEditor] = useState(false);
+  const [fileId, setFileId] = useState<string | null>(null); // will pass to slide editor
+
+  // called after succ file upload
+  const handleFileUploaded = (uploadedFileId: string) => {
+    setFileId(uploadedFileId);
+    setShowSlideEditor(true);
+  };
+
+  const handleBackToUpload = () => {
+    setShowSlideEditor(false);
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -28,7 +42,9 @@ const App: React.FC = () => {
           sx={{ 
             minHeight: '40px !important',
             paddingTop: '0px',
-            paddingBottom: '0px'
+            paddingBottom: '0px',
+            display: 'flex',
+            justifyContent: 'space-between'
           }}
         >
           <Typography 
@@ -40,11 +56,25 @@ const App: React.FC = () => {
           >
             Microsoft
           </Typography>
+          
+          {showSlideEditor && (
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={handleBackToUpload}
+            >
+              Back to Upload
+            </Button>
+          )}
         </Toolbar>
       </AppBar>
       <Container>
         <Box sx={{ my: 4 }}>
-          <FileUpload />
+          {!showSlideEditor ? (
+            <FileUpload onFileUploaded={handleFileUploaded} />
+          ) : (
+            <SlideEditor />
+          )}
         </Box>
       </Container>
     </ThemeProvider>
