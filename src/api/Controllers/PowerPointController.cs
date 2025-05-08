@@ -90,7 +90,8 @@ namespace PptProcessingApi.Controllers
                     pptId = pptId,
                     message = $"Successfully uploaded PowerPoint file: {file.FileName}",
                     url = blobUrl,
-                    fileId = outboxEntry.Id
+                    fileId = outboxEntry.Id,
+                    signalRHub = "/processingStatusHub" // URL for SignalR hub
                 });
             }
             catch (Exception ex)
@@ -100,12 +101,57 @@ namespace PptProcessingApi.Controllers
             }
         }
 
-        // Adding a GET endpoint for testing
-        [HttpGet("save_ppt")]
-        public IActionResult TestSavePpt()
+        [HttpGet("ppt/{pptId}/slides")]
+        public async Task<IActionResult> GetPptSlides(string pptId, [FromQuery] string userId = "anonymous")
         {
-            _logger.LogInformation("GET SavePpt endpoint called at {time}", DateTimeOffset.UtcNow);
-            return Ok("GET endpoint is working! Try the POST endpoint with a PowerPoint file upload.");
+            try
+            {
+                _logger.LogInformation("GetPptSlides endpoint called for pptId: {PptId} by user: {UserId}", pptId, userId);
+        
+                // Verify that the PowerPoint exists and is processed
+                var outboxEntry = await _cosmosDbService.GetOutboxEntryAsync(pptId, userId);
+        
+                if (outboxEntry == null)
+                {
+                    _logger.LogWarning("PowerPoint not found: {PptId}", pptId);
+                    return NotFound(new { message = $"PowerPoint with ID {pptId} not found" });
+                }
+        
+                // Check if image processing is completed
+                if (outboxEntry.ImageProcessingStatus != "Completed")
+                {
+                    _logger.LogWarning("Image processing not completed for pptId: {PptId}, current status: {Status}", 
+                        pptId, outboxEntry.ImageProcessingStatus);
+            
+                    return BadRequest(new {
+                        message = "Images are not ready yet. Current status: " + outboxEntry.ImageProcessingStatus,
+                        status = outboxEntry.ImageProcessingStatus
+                    });
+                }
+        
+                // Get the slide images with SAS token
+                var (slides, sasToken) = await _blobStorageService.GetSlideImagesAsync(pptId);
+        
+                if (slides.Count == 0)
+                {
+                    _logger.LogWarning("No slides found for pptId: {PptId}", pptId);
+                    return NotFound(new { message = "No slides found for this PowerPoint" });
+                }
+        
+                // Return the slide data with the SAS token
+                return Ok(new {
+                    pptId = pptId,
+                    fileName = outboxEntry.FileName,
+                    slideCount = slides.Count,
+                    slides = slides,
+                    sasToken = sasToken
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving slides for pptId: {PptId}", pptId);
+                return StatusCode(500, new { message = "An error occurred while retrieving the slides" });
+            }
         }
     }
 }

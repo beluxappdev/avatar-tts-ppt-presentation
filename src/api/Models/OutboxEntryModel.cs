@@ -3,6 +3,17 @@ using System;
 
 namespace PptProcessingApi.Models
 {
+        public class SlideModel
+    {
+        [JsonProperty(PropertyName = "index")]
+        public int Index { get; set; }
+        
+        [JsonProperty(PropertyName = "blobUrl")]
+        public string BlobUrl { get; set; }
+        
+        [JsonProperty(PropertyName = "script")]
+        public string Script { get; set; }
+    }
     public class OutboxEntryModel
     {
         [JsonProperty(PropertyName = "id")]
@@ -16,6 +27,24 @@ namespace PptProcessingApi.Models
 
         [JsonProperty(PropertyName = "status")]
         public string Status { get; set; } = "Pending"; // Pending, Processing, Completed, Failed
+
+        [JsonProperty(PropertyName = "imageProcessingStatus")]
+        public string ImageProcessingStatus { get; set; } = "Pending"; // Pending, Processing, Completed, Failed
+        
+        [JsonProperty(PropertyName = "scriptProcessingStatus")]
+        public string ScriptProcessingStatus { get; set; } = "Pending"; // Pending, Processing, Completed, Failed
+        
+        [JsonProperty(PropertyName = "imageProcessedAt")]
+        public DateTime? ImageProcessedAt { get; set; }
+        
+        [JsonProperty(PropertyName = "scriptProcessedAt")]
+        public DateTime? ScriptProcessedAt { get; set; }
+        
+        [JsonProperty(PropertyName = "imageProcessingError")]
+        public string ImageProcessingError { get; set; }
+        
+        [JsonProperty(PropertyName = "scriptProcessingError")]
+        public string ScriptProcessingError { get; set; }
 
         [JsonProperty(PropertyName = "createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -43,6 +72,9 @@ namespace PptProcessingApi.Models
 
         [JsonProperty(PropertyName = "blobUrl")]
         public string BlobUrl { get; set; }
+
+        [JsonProperty(PropertyName = "slides")]
+        public List<SlideModel> Slides { get; set; } = new List<SlideModel>();
 
         [JsonProperty(PropertyName = "messageType")]
         public string MessageType { get; set; } = "PowerPointUploaded";
