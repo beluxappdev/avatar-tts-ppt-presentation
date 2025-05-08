@@ -4,7 +4,6 @@ import tempfile
 import logging
 import subprocess
 from datetime import datetime
-import json
 from azure.storage.blob import ContentSettings
 
 # PDF processing
@@ -21,6 +20,16 @@ class ImageExtractor(BaseExtractor):
     def __init__(self):
         """Initialize the image extractor"""
         super().__init__(extractor_type="image")
+    
+    def _process_powerpoint(self, ppt_id, file_path):
+        """Process PowerPoint file to extract images
+        
+        Args:
+            ppt_id (str): ID of the PowerPoint
+            file_path (str): Path to the downloaded PowerPoint file
+        """
+        # Extract images from the PowerPoint
+        self.extract_images(ppt_id, file_path)
     
     def extract_images(self, ppt_id, presentation_path):
         """Extract images from PowerPoint presentation using LibreOffice
@@ -200,159 +209,78 @@ class ImageExtractor(BaseExtractor):
             logger.error(f"Error converting PDF to images: {str(e)}")
             raise
     
-    def process_message(self, message):
-        """Override the process_message method to modify how we handle PowerPoint files"""
-        try:
-            # Parse message body
-            if hasattr(message.body, '__iter__') and not isinstance(message.body, (str, bytes)):
-                message_body_bytes = b''.join(message.body)
-                message_body = message_body_bytes.decode('utf-8')
-            else:
-                message_body = message.body.decode('utf-8')
-            
-            message_data = json.loads(message_body)
-        
-            if message_data.get("MessageType") != "PowerPointUploaded":
-                logger.warning(f"Skipping message with unsupported type: {message_data.get('MessageType')}")
-                return
-        
-            logger.info(f"Processing PowerPointUploaded message: {message_data}")
-        
-            # Extract message properties
-            ppt_id = message_data.get("PptId")
-            file_name = message_data.get("FileName")
-            blob_url = message_data.get("BlobUrl")
-            user_id = message_data.get("UserId")
-            timestamp = message_data.get("Timestamp") or datetime.utcnow().isoformat()
-        
-            if not all([ppt_id, file_name, blob_url, user_id]):
-                error_msg = "Message missing required fields"
-                logger.error(error_msg)
-                
-                # Create a basic failure record in Cosmos even with missing fields
-                if ppt_id and user_id:
-                    self._log_failure(ppt_id, user_id, file_name or "unknown", blob_url or "unknown", 
-                                     timestamp, error_msg)
-                return
-        
-            # Reset extraction results tracking
-            self.extraction_results = None
-            
-            try:
-                # Download PowerPoint file
-                temp_path = self._download_ppt_file(blob_url)
-                
-                # Process the PowerPoint directly without using python-pptx
-                self.extract_images(ppt_id, temp_path)
-                
-                # Log the extraction to Cosmos DB
-                self.log_extraction(ppt_id, file_name, user_id, timestamp)
-                
-                # Cleanup temporary file
-                if os.path.exists(temp_path):
-                    os.unlink(temp_path)
-                
-            except Exception as e:
-                error_msg = f"Error processing PowerPoint: {str(e)}"
-                logger.error(error_msg)
-                
-                # Log the failure to Cosmos DB
-                self._log_failure(ppt_id, user_id, file_name, blob_url, timestamp, error_msg)
-                
-                # Cleanup temporary file if it exists
-                if 'temp_path' in locals() and os.path.exists(temp_path):
-                    os.unlink(temp_path)
-                
-                raise
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse message as JSON: {str(e)}")
-        except Exception as e:
-            logger.error(f"Unhandled error processing message: {str(e)}")
-            raise
-    
-    def extract_scripts(self, ppt_id, presentation):
-        """Implement required abstract method, but it's not used in ImageExtractor"""
-        pass
-    
     def _update_extraction_data(self, item, ppt_id):
         """Update image extraction data in the Cosmos DB document
-        
+    
         Args:
             item (dict): Cosmos DB document to update
             ppt_id (str): ID of the PowerPoint
         """
         try:
-            # Count number of slides with images
-            image_count = 0
-            slides_data = item.get('slides', [])
-            
-            # If 'slides' field already exists, update it with image data
-            # otherwise create a new slides array
-            if not slides_data:
-                slides_data = []
-                
-            # List all slide directories
-            slide_directories = set()
             slide_prefix = f"{ppt_id}/slides/"
-            
-            # List all blobs with the prefix for this presentation
+            slides_data = item.get('slides', []) or []
+        
+            # Create a dictionary of existing slides indexed by slide number
+            slides_dict = {slide.get('index'): slide for slide in slides_data if 'index' in slide}
+        
+            # Dictionary to track which slides have images
+            slides_with_images = {}
+        
+            # List all blobs with the prefix for this presentation (done once)
             blobs = list(self.blob_container_client.list_blobs(name_starts_with=slide_prefix))
-            
-            # Extract unique slide directories from blob paths
+        
+            # Process all blobs in a single pass
             for blob in blobs:
                 # Get relative path after the slide prefix
                 rel_path = blob.name[len(slide_prefix):]
-                # Get the slide index from the first part of the path
                 parts = rel_path.split('/')
-                if len(parts) >= 1:
-                    try:
-                        slide_index = int(parts[0])
-                        slide_directories.add(slide_index)
-                    except ValueError:
-                        logger.warning(f"Invalid slide directory format: {parts[0]}")
             
-            # For each slide directory, gather image data
-            for slide_index in sorted(slide_directories):
-                # Find or create slide entry
-                slide_data = next((slide for slide in slides_data if slide.get('index') == slide_index), None)
+                if len(parts) < 1:
+                    continue
                 
-                if slide_data is None:
-                    slide_data = {
-                        "index": slide_index,
-                        "hasImage": False,
-                        "hasScript": False
-                    }
-                    slides_data.append(slide_data)
+                try:
+                    slide_index = int(parts[0])
                 
-                # Check for image
-                image_blob_path = f"{slide_prefix}{slide_index}/image.png"
-                image_blob_exists = False
+                    # Check if this is an image file
+                    if len(parts) > 1 and parts[1] == "image.png":
+                        image_blob_path = blob.name
+                    
+                        # Create or retrieve slide data
+                        if slide_index not in slides_dict:
+                            slides_dict[slide_index] = {
+                                "index": slide_index,
+                                "hasImage": True,
+                                "hasScript": False
+                            }
+                        else:
+                            slides_dict[slide_index]["hasImage"] = True
+                    
+                        # Add image information
+                        slides_dict[slide_index]["imageUrl"] = f"https://{self.blob_endpoint.replace('https://', '')}/{self.blob_container_name}/{image_blob_path}"
+                        slides_dict[slide_index]["imageSize"] = blob.size
+                        slides_dict[slide_index]["imageType"] = "image/png"
+                        slides_with_images[slide_index] = True
                 
-                for blob in blobs:
-                    if blob.name == image_blob_path:
-                        image_blob_exists = True
-                        slide_data["hasImage"] = True
-                        slide_data["imageUrl"] = f"https://{self.blob_endpoint.replace('https://', '')}/{self.blob_container_name}/{blob.name}"
-                        slide_data["imageSize"] = blob.size
-                        slide_data["imageType"] = "image/png"
-                        image_count += 1
-                        break
-            
+                except ValueError:
+                    logger.warning(f"Invalid slide directory format: {parts[0]}")
+        
+            # Convert the dictionary back to a sorted list
+            processed_slides = [slides_dict[index] for index in sorted(slides_dict.keys())]
+        
             # Update the document with processed slide data
-            item['slides'] = slides_data
-            item['slideCount'] = len(slides_data)
-            item['slidesWithImages'] = image_count
-            
+            item['slides'] = processed_slides
+            item['slideCount'] = len(processed_slides)
+            item['slidesWithImages'] = len(slides_with_images)
+
         except Exception as e:
             # Log the error but don't fail the entire operation
             logger.error(f"Error updating image data: {str(e)}")
-            
+
             # Update the document with error information
             item['imageProcessingStatus'] = "Failed" 
             item['imageProcessingError'] = str(e)
             item['imageProcessingErrorAt'] = datetime.utcnow().isoformat()
-            
+
             raise
 
 def main():

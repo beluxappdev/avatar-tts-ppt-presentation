@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 
+from pptx import Presentation
 from base_extractor import BaseExtractor
 
 # Configure logging
@@ -12,6 +13,19 @@ class ScriptExtractor(BaseExtractor):
     def __init__(self):
         """Initialize the script extractor"""
         super().__init__(extractor_type="script")
+
+    def _process_powerpoint(self, ppt_id, file_path):
+        """Process PowerPoint file to extract scripts
+        
+        Args:
+            ppt_id (str): ID of the PowerPoint
+            file_path (str): Path to the downloaded PowerPoint file
+        """
+        # Load the presentation using python-pptx
+        presentation = Presentation(file_path)
+        
+        # Extract scripts from the PowerPoint
+        self.extract_scripts(ppt_id, presentation)
     
     def extract_scripts(self, ppt_id, presentation):
         """Extract scripts (notes) from PowerPoint presentation
@@ -110,95 +124,88 @@ class ScriptExtractor(BaseExtractor):
             }
             
             raise
-    
-    def extract_images(self, ppt_id, presentation):
-        """Implement required abstract method, but it's not used in ScriptExtractor"""
-        pass
-    
+
     def _update_extraction_data(self, item, ppt_id):
         """Update script extraction data in the Cosmos DB document
-        
+
         Args:
             item (dict): Cosmos DB document to update
             ppt_id (str): ID of the PowerPoint
         """
         try:
-            # Count number of slides with notes
-            notes_count = 0
-            slides_data = item.get('slides', [])
-            
-            # If 'slides' field already exists, update it with script data
-            # otherwise create a new slides array
-            if not slides_data:
-                slides_data = []
-                
-            # List all slide directories
-            slide_directories = set()
             slide_prefix = f"{ppt_id}/slides/"
-            
-            # List all blobs with the prefix for this presentation
+            slides_data = item.get('slides', []) or []
+        
+            # Create a dictionary of existing slides indexed by slide number
+            slides_dict = {slide.get('index'): slide for slide in slides_data if 'index' in slide}
+        
+            # Dictionary to track which slides have scripts
+            slides_with_scripts = {}
+        
+            # List all blobs with the prefix for this presentation (done once)
             blobs = list(self.blob_container_client.list_blobs(name_starts_with=slide_prefix))
-            
-            # Extract unique slide directories from blob paths
+        
+            # Process all blobs in a single pass
             for blob in blobs:
                 # Get relative path after the slide prefix
                 rel_path = blob.name[len(slide_prefix):]
-                # Get the slide index from the first part of the path
                 parts = rel_path.split('/')
-                if len(parts) >= 1:
-                    try:
-                        slide_index = int(parts[0])
-                        slide_directories.add(slide_index)
-                    except ValueError:
-                        logger.warning(f"Invalid slide directory format: {parts[0]}")
             
-            # For each slide directory, gather script data
-            for slide_index in sorted(slide_directories):
-                # Find or create slide entry
-                slide_data = next((slide for slide in slides_data if slide.get('index') == slide_index), None)
+                if len(parts) < 1:
+                    continue
                 
-                if slide_data is None:
-                    slide_data = {
-                        "index": slide_index,
-                        "hasImage": False,
-                        "hasScript": False
-                    }
-                    slides_data.append(slide_data)
+                try:
+                    slide_index = int(parts[0])
                 
-                # Check for script (notes)
-                script_blob_path = f"{slide_prefix}{slide_index}/script.txt"
-                script_blob_exists = False
-                
-                for blob in blobs:
-                    if blob.name == script_blob_path:
-                        script_blob_exists = True
-                        slide_data["hasScript"] = True
-                        slide_data["scriptUrl"] = f"https://{self.blob_endpoint.replace('https://', '')}/{self.blob_container_name}/{script_blob_path}"
-                        slide_data["scriptSize"] = blob.size
-                        notes_count += 1
-                        
+                    # Check if this is a script file
+                    if len(parts) > 1 and parts[1] == "script.txt":
+                        script_blob_path = blob.name
+                    
+                        # Create or retrieve slide data
+                        if slide_index not in slides_dict:
+                            slides_dict[slide_index] = {
+                                "index": slide_index,
+                                "hasImage": False,
+                                "hasScript": True
+                            }
+                        else:
+                            slides_dict[slide_index]["hasScript"] = True
+                    
+                        # Add script information
+                        slides_dict[slide_index]["scriptUrl"] = f"https://{self.blob_endpoint.replace('https://', '')}/{self.blob_container_name}/{script_blob_path}"
+                        slides_dict[slide_index]["scriptSize"] = blob.size
+                        slides_with_scripts[slide_index] = True
+                    
                         # Fetch script content for preview if it's not too large
                         if blob.size < 10000:  # Only fetch if less than 10KB
                             script_blob_client = self.blob_container_client.get_blob_client(script_blob_path)
                             script_content = script_blob_client.download_blob().readall().decode('utf-8')
-                            slide_data["scriptContent"] = script_content
-                        break
-            
+                            slides_dict[slide_index]["scriptContent"] = script_content
+                
+                    # Process other slide-related data here if needed
+                    # (e.g., check for images or other slide components)
+                
+                except ValueError:
+                    logger.warning(f"Invalid slide directory format: {parts[0]}")
+        
+            # Convert the dictionary back to a sorted list
+            processed_slides = [slides_dict[index] for index in sorted(slides_dict.keys())]
+        
             # Update the document with processed slide data
-            item['slides'] = slides_data
-            item['slideCount'] = len(slides_data)
-            item['slidesWithNotes'] = notes_count
-            
+            item['slides'] = processed_slides
+            item['slideCount'] = len(processed_slides)
+            item['slidesWithNotes'] = len(slides_with_scripts)
+
         except Exception as e:
             # Log the error but don't fail the entire operation
             logger.error(f"Error updating script data: {str(e)}")
-            
+
             # Update the document with error information
             item['scriptProcessingStatus'] = "Failed" 
             item['scriptProcessingError'] = str(e)
             item['scriptProcessingErrorAt'] = datetime.utcnow().isoformat()
-            
-            raise
+
+            raise    
 
 def main():
     """Main entry point"""

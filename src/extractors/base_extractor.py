@@ -11,9 +11,6 @@ from azure.servicebus import ServiceBusClient
 from azure.storage.blob import BlobServiceClient
 from azure.cosmos import CosmosClient
 
-# PowerPoint processing
-from pptx import Presentation
-
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -163,13 +160,8 @@ class BaseExtractor(ABC):
                 # Download PowerPoint file
                 temp_path = self._download_ppt_file(blob_url)
                 
-                # Process the PowerPoint based on extractor type
-                presentation = Presentation(temp_path)
-                
-                if self.extractor_type == "image":
-                    self.extract_images(ppt_id, presentation)
-                else:  # script extractor
-                    self.extract_scripts(ppt_id, presentation)
+                # Process the PowerPoint based on extractor type - delegate to concrete implementations
+                self._process_powerpoint(ppt_id, temp_path)
                 
                 # Log the extraction to Cosmos DB
                 self.log_extraction(ppt_id, file_name, user_id, timestamp)
@@ -366,16 +358,21 @@ class BaseExtractor(ABC):
             raise
     
     @abstractmethod
-    def extract_images(self, ppt_id, presentation):
-        """Extract images from PowerPoint presentation - to be implemented by ImageExtractor"""
-        pass
-    
-    @abstractmethod
-    def extract_scripts(self, ppt_id, presentation):
-        """Extract scripts from PowerPoint presentation - to be implemented by ScriptExtractor"""
+    def _process_powerpoint(self, ppt_id, file_path):
+        """Process PowerPoint file based on extractor type - to be implemented by subclasses
+        
+        Args:
+            ppt_id (str): ID of the PowerPoint
+            file_path (str): Path to the downloaded PowerPoint file
+        """
         pass
     
     @abstractmethod
     def _update_extraction_data(self, item, ppt_id):
-        """Update extraction data in the Cosmos DB document - to be implemented by derived classes"""
+        """Update extraction data in the Cosmos DB document - to be implemented by derived classes
+        
+        Args:
+            item (dict): Cosmos DB document to update
+            ppt_id (str): ID of the PowerPoint
+        """
         pass
