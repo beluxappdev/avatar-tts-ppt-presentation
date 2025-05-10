@@ -9,13 +9,22 @@ import {
   Alert, 
   AlertTitle,
   IconButton,
-  Paper
+  Paper,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import axios from 'axios';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import SettingsIcon from '@mui/icons-material/Settings';
+import MegBusinessAvatar from '../assets/meg-business-transparent.png';
+import HarryBusinessAvatar from '../assets/harry-business-transparent.png';
 
 interface Slide {
   slideNumber: number;
@@ -28,12 +37,51 @@ interface PowerPointViewerProps {
   onBack: () => void;
 }
 
+// Avatar position and size options
+type AvatarPosition = 'left' | 'center' | 'right';
+type AvatarSize = 'small' | 'medium' | 'large';
+type AvatarType = 'meg' | 'harry';
+
+// Interface for storing per-slide avatar configuration
+interface SlideAvatarConfig {
+  showAvatar: boolean;
+  avatarPosition: AvatarPosition;
+  avatarSize: AvatarSize;
+  avatarType: AvatarType;
+}
+
 const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) => {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  
+  // Default avatar configuration
+  const defaultAvatarConfig: SlideAvatarConfig = {
+    showAvatar: true,
+    avatarPosition: 'right',
+    avatarSize: 'medium',
+    avatarType: 'meg'
+  };
+  
+  // Store configurations for each slide
+  const [slideConfigs, setSlideConfigs] = useState<{[key: number]: SlideAvatarConfig}>({});
+  
+  // Current slide configuration (derived from slideConfigs or default)
+  const getCurrentConfig = (): SlideAvatarConfig => {
+    return slideConfigs[currentSlide] || defaultAvatarConfig;
+  };
+  
+  // Avatar configuration getters
+  const showAvatar = getCurrentConfig().showAvatar;
+  const avatarPosition = getCurrentConfig().avatarPosition;
+  const avatarSize = getCurrentConfig().avatarSize;
+  const avatarType = getCurrentConfig().avatarType;
+  
+  // State to track the dimensions of the slide image
+  const [slideImageDimensions, setSlideImageDimensions] = useState({ width: 0, height: 0 });
+  const [fullscreenImageDimensions, setFullscreenImageDimensions] = useState({ width: 0, height: 0 });
 
   // Fetch slides when component mounts or pptId changes
   useEffect(() => {
@@ -67,6 +115,29 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
     fetchSlides();
   }, [pptId]);
 
+  // Handle image load to get dimensions
+  const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = event.currentTarget;
+    setSlideImageDimensions({
+      width: img.offsetWidth,
+      height: img.offsetHeight
+    });
+  };
+
+  // Handle fullscreen image load
+  const handleFullscreenImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = event.currentTarget;
+    setFullscreenImageDimensions({
+      width: img.offsetWidth,
+      height: img.offsetHeight
+    });
+  };
+
+  // Get the avatar image based on the current type
+  const getAvatarImage = (): string => {
+    return avatarType === 'meg' ? MegBusinessAvatar : HarryBusinessAvatar;
+  };
+
   // Navigate to previous slide
   const prevSlide = () => {
     if (currentSlide > 0) {
@@ -84,6 +155,37 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
   // Toggle fullscreen mode for the slide
   const toggleFullscreen = () => {
     setFullscreen(!fullscreen);
+  };
+
+  // Update slide configuration
+  const updateSlideConfig = (partialConfig: Partial<SlideAvatarConfig>) => {
+    const currentConfig = getCurrentConfig();
+    const newConfig = { ...currentConfig, ...partialConfig };
+    
+    setSlideConfigs(prevConfigs => ({
+      ...prevConfigs,
+      [currentSlide]: newConfig
+    }));
+  };
+
+  // Handle avatar position change
+  const handlePositionChange = (event: SelectChangeEvent) => {
+    updateSlideConfig({ avatarPosition: event.target.value as AvatarPosition });
+  };
+
+  // Handle avatar size change
+  const handleSizeChange = (event: SelectChangeEvent) => {
+    updateSlideConfig({ avatarSize: event.target.value as AvatarSize });
+  };
+
+  // Handle avatar type change
+  const handleAvatarTypeChange = (event: SelectChangeEvent) => {
+    updateSlideConfig({ avatarType: event.target.value as AvatarType });
+  };
+
+  // Toggle avatar visibility
+  const toggleAvatar = () => {
+    updateSlideConfig({ showAvatar: !showAvatar });
   };
 
   // Handle keyboard navigation
@@ -104,6 +206,86 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
     };
   }, [currentSlide, slides.length, fullscreen]);
 
+  // Get avatar style based on size and position for normal view
+  const getAvatarStyle = (): React.CSSProperties => {
+    // Size configuration based on slide image dimensions
+    let height;
+    
+    switch(avatarSize) {
+      case 'small':
+        height = '25%'; // 20% of slide width
+        break;
+      case 'large':
+        height = '100%'; // 40% of slide width
+        break;
+      case 'medium':
+      default:
+        height = '50%'; // 30% of slide width
+    }
+
+    // Position configuration
+    let positionProps: React.CSSProperties = {};
+    switch(avatarPosition) {
+      case 'left':
+        positionProps = { left: '0%', bottom: '0%' };
+        break;
+      case 'center':
+        positionProps = { left: '50%', bottom: '0%', transform: 'translateX(-50%)' };
+        break;
+      case 'right':
+      default:
+        positionProps = { right: '0%', bottom: '0%' };
+    }
+
+    return {
+      height,
+      position: 'absolute',
+      ...positionProps,
+      objectFit: 'contain' as 'contain',
+      zIndex: 10
+    };
+  };
+
+  // Get avatar style for fullscreen view
+  const getFullscreenAvatarStyle = (): React.CSSProperties => {
+    // Size configuration based on fullscreen image dimensions
+    let height;
+    
+    switch(avatarSize) {
+      case 'small':
+        height = '25%'; // 20% of slide width
+        break;
+      case 'large':
+        height = '100%'; // 40% of slide width
+        break;
+      case 'medium':
+      default:
+        height = '50%'; // 30% of slide width
+    }
+
+    // Position configuration
+    let positionProps: React.CSSProperties = {};
+    switch(avatarPosition) {
+      case 'left':
+        positionProps = { left: '0%', bottom: '0%' };
+        break;
+      case 'center':
+        positionProps = { left: '50%', bottom: '0%', transform: 'translateX(-50%)' };
+        break;
+      case 'right':
+      default:
+        positionProps = { right: '0%', bottom: '0%' };
+    }
+
+    return {
+      height,
+      position: 'absolute',
+      ...positionProps,
+      objectFit: 'contain' as 'contain',
+      zIndex: 10
+    };
+  };
+
   if (loading) {
     return (
       <Box 
@@ -123,7 +305,7 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
 
   if (error) {
     return (
-      <Card sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
+      <Card sx={{ maxWidth: 1200, mx: 'auto', mt: 4 }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <IconButton onClick={onBack} sx={{ mr: 1 }}>
@@ -147,7 +329,7 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
 
   if (slides.length === 0) {
     return (
-      <Card sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
+      <Card sx={{ maxWidth: 1200, mx: 'auto', mt: 4 }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <IconButton onClick={onBack} sx={{ mr: 1 }}>
@@ -233,15 +415,36 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
             </IconButton>
           </Box>
           
-          <img 
-            src={slides[currentSlide].blobUrl} 
-            alt={`Slide ${currentSlide + 1}`} 
-            style={{ 
-              maxWidth: '90%', 
-              maxHeight: '90vh',
-              objectFit: 'contain'
-            }}
-          />
+          <Box sx={{ position: 'relative', display: 'inline-block' }}>
+            <img 
+              src={slides[currentSlide].blobUrl} 
+              alt={`Slide ${currentSlide + 1}`} 
+              style={{ 
+                maxWidth: '90%', 
+                maxHeight: '90vh',
+                objectFit: 'contain'
+              }}
+              onLoad={handleFullscreenImageLoad}
+            />
+            
+            {showAvatar && fullscreenImageDimensions.width > 0 && (
+              <Box 
+                sx={{ 
+                  position: 'absolute',
+                  width: fullscreenImageDimensions.width,
+                  height: fullscreenImageDimensions.height,
+                  top: 0,
+                  left: 0
+                }}
+              >
+                <img 
+                  src={getAvatarImage()}
+                  alt="Virtual presenter" 
+                  style={getFullscreenAvatarStyle()}
+                />
+              </Box>
+            )}
+          </Box>
           
           <Box
             sx={{
@@ -281,7 +484,7 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
   }
 
   return (
-    <Card sx={{ maxWidth: 900, mx: 'auto', mt: 4 }}>
+    <Card sx={{ maxWidth: 1200, mx: 'auto', mt: 4 }}>
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <IconButton onClick={onBack} sx={{ mr: 1 }}>
@@ -327,59 +530,160 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
           </Button>
         </Box>
         
-        {/* Slide Content */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Slide Image */}
-          <Paper
-            elevation={2}
-            sx={{
-              p: 3,
-              textAlign: 'center',
-              bgcolor: 'grey.50',
-              borderRadius: 2,
-              position: 'relative'
-            }}
-          >
-            <img 
-              src={slides[currentSlide].blobUrl} 
-              alt={`Slide ${currentSlide + 1}`} 
-              style={{ 
-                maxWidth: '100%', 
-                maxHeight: '400px',
-                objectFit: 'contain'
+        {/* Main Content Grid */}
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+          {/* Slide Content - Left Side */}
+          <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 66.66%' } }}>
+            {/* Slide Image */}
+            <Paper
+              elevation={2}
+              sx={{
+                p: 3,
+                textAlign: 'center',
+                bgcolor: 'grey.50',
+                borderRadius: 2,
+                position: 'relative',
+                mb: 3
               }}
-            />
-          </Paper>
+            >
+              <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                <img 
+                  src={slides[currentSlide].blobUrl} 
+                  alt={`Slide ${currentSlide + 1}`} 
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: '400px',
+                    objectFit: 'contain'
+                  }}
+                  onLoad={handleImageLoad}
+                />
+                
+                {showAvatar && slideImageDimensions.width > 0 && (
+                  <Box 
+                    sx={{ 
+                      position: 'absolute',
+                      width: slideImageDimensions.width,
+                      height: slideImageDimensions.height,
+                      top: 0,
+                      left: 0
+                    }}
+                  >
+                    <img 
+                      src={getAvatarImage()}
+                      alt="Virtual presenter" 
+                      style={getAvatarStyle()}
+                    />
+                  </Box>
+                )}
+              </Box>
+            </Paper>
+            
+            {/* Slide Script */}
+            <Paper
+              elevation={2}
+              sx={{
+                p: 3,
+                bgcolor: 'primary.light',
+                color: 'primary.contrastText',
+                borderRadius: 2
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                Slide Script
+              </Typography>
+              {slides[currentSlide].script ? (
+                <Typography
+                  variant="body1" 
+                  sx={{ 
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'inherit'
+                  }}
+                >
+                  {slides[currentSlide].script}
+                </Typography>
+              ) : (
+                <Typography variant="body1" sx={{ fontStyle: 'italic', opacity: 0.8 }}>
+                  No script available for this slide.
+                </Typography>
+              )}
+            </Paper>
+          </Box>
           
-          {/* Slide Script */}
-          <Paper
-            elevation={2}
-            sx={{
-              p: 3,
-              bgcolor: 'primary.light',
-              color: 'primary.contrastText',
-              borderRadius: 2
-            }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Slide Script
-            </Typography>
-            {slides[currentSlide].script ? (
-              <Typography
-                variant="body1" 
-                sx={{ 
-                  whiteSpace: 'pre-wrap',
-                  fontFamily: 'inherit'
-                }}
-              >
-                {slides[currentSlide].script}
-              </Typography>
-            ) : (
-              <Typography variant="body1" sx={{ fontStyle: 'italic', opacity: 0.8 }}>
-                No script available for this slide.
-              </Typography>
-            )}
-          </Paper>
+          {/* Avatar Configuration - Right Side */}
+          <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 33.33%' } }}>
+            <Paper
+              elevation={2}
+              sx={{
+                p: 3,
+                bgcolor: 'grey.50',
+                borderRadius: 2,
+                height: '100%'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                <SettingsIcon sx={{ mr: 1, color: 'primary.main' }} />
+                <Typography variant="h6">Avatar Configuration</Typography>
+              </Box>
+              
+              <Box sx={{ mb: 3 }}>
+                <Button 
+                  variant="contained" 
+                  color={showAvatar ? "primary" : "secondary"}
+                  onClick={toggleAvatar}
+                  fullWidth
+                >
+                  {showAvatar ? "Hide Avatar" : "Show Avatar"}
+                </Button>
+              </Box>
+              
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <InputLabel id="avatar-type-label">Avatar</InputLabel>
+                <Select
+                  labelId="avatar-type-label"
+                  id="avatar-type"
+                  value={avatarType}
+                  label="Avatar"
+                  onChange={handleAvatarTypeChange}
+                  disabled={!showAvatar}
+                >
+                  <MenuItem value="meg">Meg</MenuItem>
+                  <MenuItem value="harry">Harry</MenuItem>
+                </Select>
+              </FormControl>
+              
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <InputLabel id="avatar-position-label">Position</InputLabel>
+                <Select
+                  labelId="avatar-position-label"
+                  id="avatar-position"
+                  value={avatarPosition}
+                  label="Position"
+                  onChange={handlePositionChange}
+                  disabled={!showAvatar}
+                >
+                  <MenuItem value="left">Left</MenuItem>
+                  <MenuItem value="center">Center</MenuItem>
+                  <MenuItem value="right">Right</MenuItem>
+                </Select>
+              </FormControl>
+              
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <InputLabel id="avatar-size-label">Size</InputLabel>
+                <Select
+                  labelId="avatar-size-label"
+                  id="avatar-size"
+                  value={avatarSize}
+                  label="Size"
+                  onChange={handleSizeChange}
+                  disabled={!showAvatar}
+                >
+                  <MenuItem value="small">Small</MenuItem>
+                  <MenuItem value="medium">Medium</MenuItem>
+                  <MenuItem value="large">Large</MenuItem>
+                </Select>
+              </FormControl>
+            </Paper>
+          </Box>
         </Box>
       </CardContent>
     </Card>
