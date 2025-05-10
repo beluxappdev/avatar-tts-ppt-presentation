@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: avatar-tts-ppt-presentation
+metadata:
+    template: azd-init@1.15.0
+services:
+    api:
+        project: src/api
+        host: containerapp
+        language: dotnet
+        docker:
+            path: Dockerfile
+    image-extractor:
+        project: src/extractors
+        host: containerapp
+        language: python
+        docker:
+            path: Dockerfile
+    script-extractor:
+        project: src/extractors
+        host: containerapp
+        language: python
+        docker:
+            path: Dockerfile
+    ui:
+        project: src/ui
+        host: containerapp
+        language: js
+        dist: build
+        docker:
+            path: Dockerfile
