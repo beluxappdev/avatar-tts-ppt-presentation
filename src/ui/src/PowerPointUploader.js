@@ -26,7 +26,6 @@ const PowerPointUploader = () => {
   
   // Get base API URL based on environment
   const getBaseApiUrl = () => {
-    return 'http://localhost:8080';
     console.log("process.env:", process.env);
     console.log('REACT_APP_API_BASE_URL:', process.env.REACT_APP_API_BASE_URL);
   

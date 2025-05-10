@@ -211,7 +211,7 @@ namespace PptProcessingApi.Services
                 {
                     BlobContainerName = containerPptName.Name,
                     Resource = "c", // 'c' for container
-                    ExpiresOn = DateTimeOffset.UtcNow.AddHours(1)
+                    ExpiresOn = DateTimeOffset.UtcNow.AddHours(24)
                 };
         
                 // Set the prefix to limit access to only the blobs with this pptId
