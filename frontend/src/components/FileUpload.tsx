@@ -99,12 +99,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded = undefined }) =
         fileId: response.data.pptId
       });
       
-      // Call the callback when upload is successful
       if (onFileUploaded && response.data.pptId) {
         onFileUploaded(response.data.pptId);
       }
     } catch (error) {
-      // Error handling code
+      // todo
     } finally {
       setIsUploading(false);
     }

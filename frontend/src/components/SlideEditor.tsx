@@ -1,4 +1,4 @@
-import React, { useState, DragEvent } from 'react';
+import React, { useState, DragEvent, useEffect } from 'react';
 import {
   Box,
   CardContent,
@@ -16,10 +16,21 @@ import {
   Stack
 } from '@mui/material';
 
-// needs icons: trash, drag, movie
+// Import avatar images
+import HarryAvatar from '../assets/avatars/harry.png';
+import JeffAvatar from '../assets/avatars/jeff.png';
+import LisaAvatar from '../assets/avatars/lisa.png';
+import LoriAvatar from '../assets/avatars/lori.png';
+import MaxAvatar from '../assets/avatars/max.png';
 
-interface Slide {
+// import DeleteIcon from '@mui/icons-material/Delete';
+// import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+// import MovieIcon from '@mui/icons-material/Movie';
+
+
+export interface EditorSlide {
   id: string;
+  index: number;
   title: string;
   thumbnailUrl: string;
   voice: string;
@@ -28,28 +39,86 @@ interface Slide {
   script?: string;
 }
 
-const initialSlidesData: Slide[] = [
-  { id: 'slide1', title: 'Slide 1: Introduction', thumbnailUrl: 'https://bloburl1', voice: 'Karim', avatarSize: 'Medium', avatarPosition: 'Left', script: 'Manager' },
-  { id: 'slide2', title: 'Slide 2: Key Points', thumbnailUrl: 'https://bloblurl2', voice: 'Mateo', avatarSize: 'Large', avatarPosition: 'Center', script: 'AI Avatar' },
-  { id: 'slide3', title: 'Slide 3: Details', thumbnailUrl: 'https://bloburl3', voice: 'Nicolas', avatarSize: 'Small', avatarPosition: 'Right', script: 'Azure Devops' },
-  { id: 'slide4', title: 'Slide 4: Examples', thumbnailUrl: 'https://bloburl4', voice: 'Youssef', avatarSize: 'Medium', avatarPosition: 'Left', script: 'Terraform' },
-  { id: 'slide5', title: 'Slide 5: Conclusion', thumbnailUrl: 'https://bloburl5', voice: 'Andras', avatarSize: 'Large', avatarPosition: 'Center', script: 'AI Avatar' },
-];
+const VOICE_OPTIONS = ['Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
+const AVATAR_SIZES: EditorSlide['avatarSize'][] = ['Small', 'Medium', 'Large'];
+const AVATAR_POSITIONS: EditorSlide['avatarPosition'][] = ['Left', 'Center', 'Right'];
 
-const VOICE_OPTIONS = ['Mateo', 'Andras', 'Karim', 'Nicolas', 'Youssef'];
-const AVATAR_SIZES: Slide['avatarSize'][] = ['Small', 'Medium', 'Large'];
-const AVATAR_POSITIONS: Slide['avatarPosition'][] = ['Left', 'Center', 'Right'];
+interface SlideEditorProps {
+  slides: EditorSlide[];
+  pptId: string | null;
+}
 
-const SlideEditor: React.FC = () => {
-  const [slides, setSlides] = useState<Slide[]>(initialSlidesData);
+const avatarImageMap: Record<string, string> = {
+  Harry: HarryAvatar,
+  Jeff: JeffAvatar,
+  Lisa: LisaAvatar,
+  Lori: LoriAvatar,
+  Max: MaxAvatar,
+};
+
+const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId }) => {
+  const [slides, setSlides] = useState<EditorSlide[]>(initialSlides);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    setSlides(initialSlides);
+  }, [initialSlides]);
+
+  const getAvatarImageUrl = (voice: string): string => {
+    return avatarImageMap[voice] || '';
+  };
+
+  const getAvatarStyle = (
+    size: EditorSlide['avatarSize'],
+    position: EditorSlide['avatarPosition']
+  ): React.CSSProperties => {
+    const style: React.CSSProperties = {
+      position: 'absolute',
+      objectFit: 'contain',
+      transition: 'all 0.3s ease',
+      pointerEvents: 'none',
+    };
+
+   switch (size) {
+      case 'Small':
+        style.width = '30px';
+        style.height = '30px';
+        break;
+      case 'Medium':
+        style.width = '50px';
+        style.height = '50px';
+        break;
+      case 'Large':
+        style.width = '70px';
+        style.height = '70px';
+        break;
+    }
+
+    switch (position) {
+      case 'Left':
+        style.left = '5px';
+        style.bottom = '5px';
+        break;
+      case 'Center':
+        style.left = '50%';
+        style.bottom = '5px';
+        style.transform = 'translateX(-50%)';
+        break;
+      case 'Right':
+        style.right = '5px';
+        style.bottom = '5px';
+        break;
+    }
+    return style;
+  };
+
 
   const handleDeleteSlide = (id: string) => {
     setSlides(prevSlides => prevSlides.filter(slide => slide.id !== id));
   };
 
-  const handleSlideChange = (id: string, field: keyof Slide, value: string) => {
+  const handleSlideChange = (id: string, field: keyof EditorSlide, value: string) => {
     setSlides(prevSlides =>
       prevSlides.map(slide =>
         slide.id === id ? { ...slide, [field]: value } : slide
@@ -59,27 +128,32 @@ const SlideEditor: React.FC = () => {
 
   const onDragStart = (e: DragEvent<HTMLDivElement>, index: number) => {
     setDraggedItemIndex(index);
-    e.dataTransfer.effectAllowed = "move";
+    if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+    }
   };
 
   const onDragOver = (e: DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
+    const target = e.currentTarget as HTMLDivElement;
     if (draggedItemIndex === null || draggedItemIndex === index) {
       return;
     }
-    e.currentTarget.style.borderTop = draggedItemIndex < index ? '2px solid #1976d2' : 'none';
-    e.currentTarget.style.borderBottom = draggedItemIndex > index ? '2px solid #1976d2' : 'none';
+    target.style.borderTop = draggedItemIndex < index ? '2px solid #1976d2' : 'none';
+    target.style.borderBottom = draggedItemIndex > index ? '2px solid #1976d2' : 'none';
   };
   
   const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.currentTarget.style.borderTop = 'none';
-    e.currentTarget.style.borderBottom = 'none';
+    const target = e.currentTarget as HTMLDivElement;
+    target.style.borderTop = 'none';
+    target.style.borderBottom = 'none';
   };
   
   const onDrop = (e: DragEvent<HTMLDivElement>, targetIndex: number) => {
     e.preventDefault();
-    e.currentTarget.style.borderTop = 'none';
-    e.currentTarget.style.borderBottom = 'none';
+    const target = e.currentTarget as HTMLDivElement;
+    target.style.borderTop = 'none';
+    target.style.borderBottom = 'none';
     
     if (draggedItemIndex === null || draggedItemIndex === targetIndex) {
       setDraggedItemIndex(null);
@@ -95,17 +169,18 @@ const SlideEditor: React.FC = () => {
   };
 
   const onDragEnd = (e: DragEvent<HTMLDivElement>) => {
-    e.currentTarget.style.borderTop = 'none';
-    e.currentTarget.style.borderBottom = 'none';
+    const target = e.currentTarget as HTMLDivElement;
+    target.style.borderTop = 'none';
+    target.style.borderBottom = 'none';
     setDraggedItemIndex(null);
   };
 
-// this is just a sample since the api is not connected
   const handleGenerateVideo = () => {
     setIsProcessing(true);
+    console.log("Generating video with slides data:", slides);
     setTimeout(() => {
       setIsProcessing(false);
-      alert('Video generation request submitted successfully!');
+      alert('Video generation sent');
     }, 2000);
   };
 
@@ -113,7 +188,7 @@ const SlideEditor: React.FC = () => {
     <Box sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5">
-          Slide Editor
+          Slide Editor (PPT ID: {pptId || 'N/A'})
         </Typography>
         <Button 
           variant="contained" 
@@ -156,27 +231,40 @@ const SlideEditor: React.FC = () => {
               }
             }}
           >
-            {/* drag icon here maybe */}
-            <CardMedia
-              component="img"
-              sx={{ width: 160, height: 90, borderRadius: 1, flexShrink: 0 }}
-              image={slide.thumbnailUrl}
-              alt={slide.title}
-            />
+            {/* <DragIndicatorIcon sx={{ cursor: 'grab', color: 'action.active' }} /> */}
+            <Box sx={{ position: 'relative', width: 160, height: 90, flexShrink: 0, borderRadius: 1, overflow: 'hidden' }}>
+              <CardMedia
+                component="img"
+                sx={{ width: '100%', height: '100%'}}
+                image={slide.thumbnailUrl}
+                alt={slide.title}
+              />
+              {getAvatarImageUrl(slide.voice) && (
+                <img
+                  src={getAvatarImageUrl(slide.voice)}
+                  alt={`${slide.voice} avatar`}
+                  style={getAvatarStyle(slide.avatarSize, slide.avatarPosition)}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              )}
+            </Box>
             <CardContent sx={{ flexGrow: 1, p: '0 !important', ml: 1 }}>
               <Typography variant="subtitle1" gutterBottom>
-                {slide.title}
+                {slide.title} (Index: {slide.index})
+              </Typography>
+              <Typography variant="caption" display="block" gutterBottom sx={{ maxHeight: '4.5em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                Script: {slide.script || "No script available"}
               </Typography>
               
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                <Box sx={{ width: { xs: '100%', sm: '32%' } }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Voice</InputLabel>
                     <Select
                       value={slide.voice}
                       label="Voice"
                       onChange={(e: SelectChangeEvent<string>) =>
-                        handleSlideChange(slide.id, 'voice', e.target.value)
+                        handleSlideChange(slide.id, 'voice', e.target.value as EditorSlide['voice'])
                       }
                     >
                       {VOICE_OPTIONS.map(voice => (
@@ -187,14 +275,14 @@ const SlideEditor: React.FC = () => {
                     </Select>
                   </FormControl>
                 </Box>
-                <Box sx={{ width: { xs: '100%', sm: '32%' } }}>
+                <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Avatar Size</InputLabel>
                     <Select
                       value={slide.avatarSize}
                       label="Avatar Size"
                       onChange={(e: SelectChangeEvent<string>) =>
-                        handleSlideChange(slide.id, 'avatarSize', e.target.value)
+                        handleSlideChange(slide.id, 'avatarSize', e.target.value as EditorSlide['avatarSize'])
                       }
                     >
                       {AVATAR_SIZES.map(size => (
@@ -205,14 +293,14 @@ const SlideEditor: React.FC = () => {
                     </Select>
                   </FormControl>
                 </Box>
-                <Box sx={{ width: { xs: '100%', sm: '32%' } }}>
+                <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Avatar Position</InputLabel>
                     <Select
                       value={slide.avatarPosition}
                       label="Avatar Position"
                       onChange={(e: SelectChangeEvent<string>) =>
-                        handleSlideChange(slide.id, 'avatarPosition', e.target.value)
+                        handleSlideChange(slide.id, 'avatarPosition', e.target.value as EditorSlide['avatarPosition'])
                       }
                     >
                       {AVATAR_POSITIONS.map(pos => (
@@ -232,13 +320,16 @@ const SlideEditor: React.FC = () => {
               color="error"
             >
               {/* <DeleteIcon /> */}
+              <Typography variant="caption">Delete</Typography>
             </IconButton>
           </Paper>
         ))}
       </Stack>
 
       {slides.length === 0 && (
-        <Typography sx={{mt: 2}}>No slides to display. You can add new slides (feature to be implemented).</Typography>
+        <Typography sx={{mt: 2}}>
+          {pptId ? "Waiting for slides to be processed or no slides found." : "Upload a presentation to see slides here."}
+        </Typography>
       )}
     </Box>
   );

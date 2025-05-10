@@ -6,6 +6,7 @@ AzureServices__CosmosDb__Database=your-cosmosdb-database
 AzureServices__CosmosDb__Container=your-cosmosdb-container
 AzureServices__BlobStorage__Endpoint=your-storage-endpoint
 AzureServices__BlobStorage__Container=your-container-name
+
 AzureServices__ServiceBus__Namespace=your-servicebus-namespace
 AzureServices__ServiceBus__Topic=your-servicebus-topic
 AzureServices__ServiceBus__Subscription__Image=your-servicebus-subscription-image
