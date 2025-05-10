@@ -1,18 +1,6 @@
 
 version: '3.8'
 services:
-  ui:
-    build:
-      context: ./src/ui/
-      dockerfile: Dockerfile
-      args:
-        - REACT_APP_API_BASE_URL=http://localhost:8080
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_BASE_URL=http://localhost:8080
-    env_file:
-      - .env
   api:
     build:
       context: ./src/api/
@@ -41,3 +29,13 @@ services:
       - EXTRACTOR_TYPE=script_extractor
     env_file:
       - .env
+  frontend:
+    build:
+      context: ./frontend/
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080/api

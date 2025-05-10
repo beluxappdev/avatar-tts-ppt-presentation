@@ -6,13 +6,10 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 
 # Azure libraries
-from azure.identity import DefaultAzureCredential, ClientSecretCredential
+from azure.identity import ClientSecretCredential
 from azure.servicebus import ServiceBusClient
 from azure.storage.blob import BlobServiceClient
 from azure.cosmos import CosmosClient
-
-# PowerPoint processing
-from pptx import Presentation
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -20,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class BaseExtractor(ABC):
     """Base class for PowerPoint content extractors with shared functionality"""
-
+    
     def __init__(self, extractor_type):
         """Initialize the base extractor with common functionality
         
@@ -30,6 +27,10 @@ class BaseExtractor(ABC):
         self.extractor_type = extractor_type
         
         # Load configuration from environment variables
+        self.tenant_id = os.environ["AzureAd__TenantId"]
+        self.client_id = os.environ["AzureAd__ClientId"]
+        self.client_secret = os.environ["AzureAd__ClientSecret"]
+        
         self.cosmos_endpoint = os.environ["AzureServices__CosmosDb__Endpoint"]
         self.cosmos_db_name = os.environ["AzureServices__CosmosDb__Database"]
         self.cosmos_container_name = os.environ["AzureServices__CosmosDb__Container"]
@@ -41,33 +42,12 @@ class BaseExtractor(ABC):
         self.servicebus_topic = os.environ["AzureServices__ServiceBus__Topic"]
         self.servicebus_subscription = os.environ.get(f"AzureServices__ServiceBus__Subscription__{extractor_type.capitalize()}")
         
-        # Check if we're running in Azure or locally
-        is_running_in_azure = os.environ.get("ENVIRONMENT", "").lower() == "azure"
-        
-        # Initialize Azure credentials based on environment
-        if is_running_in_azure:
-            logger.info("Running in Azure environment, using managed identity")
-            # Check if we're using a user-assigned managed identity
-            managed_identity_client_id = os.environ.get("AzureServices__ManagedIdentity__ClientId")
-            
-            if managed_identity_client_id:
-                logger.info(f"Using user-assigned managed identity with client ID: {managed_identity_client_id}")
-                self.credential = DefaultAzureCredential(managed_identity_client_id=managed_identity_client_id)
-            else:
-                logger.info("Using system-assigned managed identity")
-                self.credential = DefaultAzureCredential()
-        else:
-            logger.info("Running in local development environment, using service principal")
-            # Use service principal authentication for local development
-            self.tenant_id = os.environ["AzureAd__TenantId"]
-            self.client_id = os.environ["AzureAd__ClientId"]
-            self.client_secret = os.environ["AzureAd__ClientSecret"]
-            
-            self.credential = ClientSecretCredential(
-                tenant_id=self.tenant_id,
-                client_id=self.client_id,
-                client_secret=self.client_secret
-            )
+        # Initialize Azure credentials
+        self.credential = ClientSecretCredential(
+            tenant_id=self.tenant_id,
+            client_id=self.client_id,
+            client_secret=self.client_secret
+        )
         
         # Initialize Azure clients
         self._init_blob_client()
@@ -180,13 +160,8 @@ class BaseExtractor(ABC):
                 # Download PowerPoint file
                 temp_path = self._download_ppt_file(blob_url)
                 
-                # Process the PowerPoint based on extractor type
-                presentation = Presentation(temp_path)
-                
-                if self.extractor_type == "image":
-                    self.extract_images(ppt_id, presentation)
-                else:  # script extractor
-                    self.extract_scripts(ppt_id, presentation)
+                # Process the PowerPoint based on extractor type - delegate to concrete implementations
+                self._process_powerpoint(ppt_id, temp_path)
                 
                 # Log the extraction to Cosmos DB
                 self.log_extraction(ppt_id, file_name, user_id, timestamp)
@@ -383,16 +358,21 @@ class BaseExtractor(ABC):
             raise
     
     @abstractmethod
-    def extract_images(self, ppt_id, presentation):
-        """Extract images from PowerPoint presentation - to be implemented by ImageExtractor"""
-        pass
-    
-    @abstractmethod
-    def extract_scripts(self, ppt_id, presentation):
-        """Extract scripts from PowerPoint presentation - to be implemented by ScriptExtractor"""
+    def _process_powerpoint(self, ppt_id, file_path):
+        """Process PowerPoint file based on extractor type - to be implemented by subclasses
+        
+        Args:
+            ppt_id (str): ID of the PowerPoint
+            file_path (str): Path to the downloaded PowerPoint file
+        """
         pass
     
     @abstractmethod
     def _update_extraction_data(self, item, ppt_id):
-        """Update extraction data in the Cosmos DB document - to be implemented by derived classes"""
+        """Update extraction data in the Cosmos DB document - to be implemented by derived classes
+        
+        Args:
+            item (dict): Cosmos DB document to update
+            ppt_id (str): ID of the PowerPoint
+        """
         pass
