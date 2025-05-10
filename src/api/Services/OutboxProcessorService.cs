@@ -135,7 +135,7 @@ namespace PptProcessingApi.Services
                         // Mark all entries as completed
                         foreach (var entry in userEntries)
                         {
-                            entry.Status = "Completed";
+                            entry.Status = "Processing";
                             entry.CompletedAt = DateTime.UtcNow;
                             await _cosmosDbService.UpdateOutboxEntryAsync(entry);
                         }

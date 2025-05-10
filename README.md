@@ -1,6 +1,6 @@
 # avatar-tts-ppt-presentation
 
-This repository contains a microservices-based application designed to generate PowerPoint presentations using text-to-speech and avatars. Currently, the project includes an API microservice built with .NET located in `src/api`.
+This repository contains a microservices-based application designed to generate PowerPoint presentations using text-to-speech and avatars. Currently, the project includes an API microservice built with .NET located in `src/api` and the image and script extractors located in `src/extractors`.
 
 ## Prerequisites
 
@@ -24,6 +24,7 @@ Before running the application, ensure you have the following:
       ```
   - **Storage Blob Data Contributor** (scope: Blob Storage account)
   - **Azure Service Bus Data Sender** (scope: Service Bus namespace)
+  - **Azure Service Bus Data Receiver** (scope: Service Bus namespace)
 
 ## Setup
 
@@ -43,4 +44,4 @@ Once your `.env` file is configured, run the following command to build and star
 docker compose up --build
 ```
 
-Currently, this will start the `ppt-api` service. Additional microservices will be added in the future.
+Currently, this will start the `api`, `image-extractor` and `script-extractor` services. Additional microservices will be added in the future.

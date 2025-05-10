@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PptProcessingApi.Services;
+using PptProcessingApi.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,12 +17,15 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSignalR();
 
 // Register services
+builder.Services.AddSingleton<AzureCredentialService>();
 builder.Services.AddSingleton<BlobStorageService>();
 builder.Services.AddSingleton<CosmosDbService>();
 builder.Services.AddSingleton<ServiceBusService>();
 builder.Services.AddHostedService<OutboxProcessorService>();
+builder.Services.AddSingleton<SignalRService>();
 
 // Configure logging
 builder.Logging.ClearProviders();
@@ -31,11 +35,14 @@ builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 var app = builder.Build();
 
+app.UseStaticFiles();
+
 // Enable CORS
 app.UseCors(builder => builder
-    .AllowAnyOrigin()
+    .SetIsOriginAllowed(_ => true) // For testing, allow any origin
     .AllowAnyMethod()
-    .AllowAnyHeader());
+    .AllowAnyHeader()
+    .AllowCredentials()); // Important for SignalR
 
 // Configure the HTTP request pipeline.
 app.UseSwagger();
@@ -54,8 +61,12 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ProcessingStatusHub>("/processingStatusHub");
 
 // Add a simple test endpoint
 app.MapGet("/", () => "API is running!");
+
+var cosmosDbService = app.Services.GetRequiredService<CosmosDbService>();
+await cosmosDbService.StartChangeProcessorAsync("leaseContainer");
 
 app.Run();
