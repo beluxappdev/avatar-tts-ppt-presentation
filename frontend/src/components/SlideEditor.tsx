@@ -13,10 +13,10 @@ import {
   SelectChangeEvent,
   Paper,
   Divider,
-  Stack
+  Stack,
+  TextField
 } from '@mui/material';
 
-// Import avatar images
 import HarryAvatar from '../assets/avatars/harry.png';
 import JeffAvatar from '../assets/avatars/jeff.png';
 import LisaAvatar from '../assets/avatars/lisa.png';
@@ -27,7 +27,6 @@ import MaxAvatar from '../assets/avatars/max.png';
 // import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 // import MovieIcon from '@mui/icons-material/Movie';
 
-
 export interface EditorSlide {
   id: string;
   index: number;
@@ -35,13 +34,20 @@ export interface EditorSlide {
   thumbnailUrl: string;
   voice: string;
   avatarSize: 'Small' | 'Medium' | 'Large';
-  avatarPosition: 'Left' | 'Center' | 'Right';
+  avatarPosition: 'Left' | 'Center' | 'Right' | 'UpperLeft' | 'UpperCenter' | 'UpperRight';
   script?: string;
 }
 
 const VOICE_OPTIONS = ['Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
 const AVATAR_SIZES: EditorSlide['avatarSize'][] = ['Small', 'Medium', 'Large'];
-const AVATAR_POSITIONS: EditorSlide['avatarPosition'][] = ['Left', 'Center', 'Right'];
+const AVATAR_POSITIONS: EditorSlide['avatarPosition'][] = [
+  'Left', 
+  'Center', 
+  'Right', 
+  'UpperLeft', 
+  'UpperCenter', 
+  'UpperRight'
+];
 
 interface SlideEditorProps {
   slides: EditorSlide[];
@@ -108,6 +114,19 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
       case 'Right':
         style.right = '5px';
         style.bottom = '5px';
+        break;
+      case 'UpperLeft':
+        style.left = '5px';
+        style.top = '5px';
+        break;
+      case 'UpperCenter':
+        style.left = '50%';
+        style.top = '5px';
+        style.transform = 'translateX(-50%)';
+        break;
+      case 'UpperRight':
+        style.right = '5px';
+        style.top = '5px';
         break;
     }
     return style;
@@ -252,9 +271,18 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
               <Typography variant="subtitle1" gutterBottom>
                 {slide.title} (Index: {slide.index})
               </Typography>
-              <Typography variant="caption" display="block" gutterBottom sx={{ maxHeight: '4.5em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
-                Script: {slide.script || "No script available"}
-              </Typography>
+              <TextField
+                label="Script"
+                multiline
+                fullWidth
+                variant="outlined"
+                size="small"
+                value={slide.script || ''}
+                onChange={(e) => handleSlideChange(slide.id, 'script', e.target.value)}
+                minRows={2}
+                maxRows={4}
+                sx={{ mt: 1, mb: 1 }}
+              />
               
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                 <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
