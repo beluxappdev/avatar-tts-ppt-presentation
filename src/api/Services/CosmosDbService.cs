@@ -5,6 +5,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using static Microsoft.Azure.Cosmos.ChangeFeedProcessor;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using PptProcessingApi.Services;
 
 namespace PptProcessingApi.Services
 {
@@ -12,15 +16,22 @@ namespace PptProcessingApi.Services
     {
         private readonly Container _container;
         private readonly ILogger<CosmosDbService> _logger;
+        private readonly SignalRService _signalRService;
+        private readonly string _databaseName;
+        private readonly CosmosClient _cosmosClient;
 
-        public CosmosDbService(IConfiguration configuration, ILogger<CosmosDbService> logger)
+        public CosmosDbService(
+            IConfiguration configuration, 
+            ILogger<CosmosDbService> logger,
+            SignalRService signalRService)
         {
             _logger = logger;
+            _signalRService = signalRService;
 
             // Get configuration from appsettings or environment variables
             var endpoint = configuration["AzureServices:CosmosDb:Endpoint"]
                         ?? throw new InvalidOperationException("Cosmos DB endpoint is missing in configuration.");
-            var databaseName = configuration["AzureServices:CosmosDb:Database"]
+            _databaseName = configuration["AzureServices:CosmosDb:Database"]
                         ?? throw new InvalidOperationException("Cosmos DB database name is missing in configuration.");
             var containerName = configuration["AzureServices:CosmosDb:Container"]
                         ?? throw new InvalidOperationException("Cosmos DB container name is missing in configuration.");
@@ -33,12 +44,12 @@ namespace PptProcessingApi.Services
                             ?? throw new InvalidOperationException("ClientSecret is missing in configuration.");
 
             _logger.LogInformation("Configuring Azure Cosmos DB: Endpoint: {Endpoint}, Database: {Database}, Container: {Container}",
-                endpoint, databaseName, containerName);
+                endpoint, _databaseName, containerName);
 
             var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
 
             // Create CosmosClient
-            var client = new CosmosClient(endpoint, credential, new CosmosClientOptions
+            _cosmosClient = new CosmosClient(endpoint, credential, new CosmosClientOptions
             {
                 SerializerOptions = new CosmosSerializationOptions
                 {
@@ -47,10 +58,10 @@ namespace PptProcessingApi.Services
             });
 
             // Create database if it doesn't exist
-            var database = client.CreateDatabaseIfNotExistsAsync(databaseName).GetAwaiter().GetResult();
+            var database = _cosmosClient.CreateDatabaseIfNotExistsAsync(_databaseName).GetAwaiter().GetResult();
 
             // Create container if it doesn't exist
-            // The partition key is set to "/partitionKey"
+            // The partition key is set to "/userId"
             var containerProperties = new ContainerProperties(containerName, "/userId")
             {
                 DefaultTimeToLive = -1 // Enable TTL but don't set a default
@@ -64,6 +75,10 @@ namespace PptProcessingApi.Services
             {
                 _logger.LogInformation("Creating outbox entry for file: {FileName}", entry.FileName);
                 var response = await _container.CreateItemAsync(entry, new PartitionKey(entry.PartitionKey));
+                
+                // Notify clients about the new entry via SignalR
+                await _signalRService.SendStatusUpdateAsync(entry.Id, entry.Status, $"PowerPoint file uploaded: {entry.FileName}");
+                
                 return response.Resource;
             }
             catch (Exception ex)
@@ -77,12 +92,56 @@ namespace PptProcessingApi.Services
         {
             try
             {
+                var previousEntry = await GetOutboxEntryAsync(entry.Id, entry.PartitionKey);
                 var response = await _container.ReplaceItemAsync(entry, entry.Id, new PartitionKey(entry.PartitionKey));
+                
+                // Check if status has changed and notify clients via SignalR
+                if (previousEntry == null || previousEntry.Status != entry.Status)
+                {
+                    await _signalRService.SendStatusUpdateAsync(entry.Id, entry.Status);
+                    _logger.LogInformation("Status change notification sent for {Id}: {Status}", entry.Id, entry.Status);
+                }
+                
+                // Check if image processing status has changed
+                if (previousEntry == null || previousEntry.ImageProcessingStatus != entry.ImageProcessingStatus)
+                {
+                    await _signalRService.SendProcessingProgressAsync(entry.Id, "ImageProcessing", entry.ImageProcessingStatus);
+                    _logger.LogInformation("Image processing status change notification sent for {Id}: {Status}", 
+                        entry.Id, entry.ImageProcessingStatus);
+                }
+                
+                // Check if script processing status has changed
+                if (previousEntry == null || previousEntry.ScriptProcessingStatus != entry.ScriptProcessingStatus)
+                {
+                    await _signalRService.SendProcessingProgressAsync(entry.Id, "ScriptProcessing", entry.ScriptProcessingStatus);
+                    _logger.LogInformation("Script processing status change notification sent for {Id}: {Status}", 
+                        entry.Id, entry.ScriptProcessingStatus);
+                }
+                
                 return response.Resource;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating outbox entry: {Id}", entry.Id);
+                throw;
+            }
+        }
+
+        public async Task<OutboxEntryModel> GetOutboxEntryAsync(string id, string partitionKey)
+        {
+            try
+            {
+                var response = await _container.ReadItemAsync<OutboxEntryModel>(id, new PartitionKey(partitionKey));
+                return response.Resource;
+            }
+            catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning("Outbox entry not found: {Id}", id);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving outbox entry: {Id}", id);
                 throw;
             }
         }
@@ -137,6 +196,80 @@ namespace PptProcessingApi.Services
             {
                 _logger.LogError(ex, "Error retrieving failed outbox entries");
                 throw;
+            }
+        }
+
+        // Start the Change Feed processor to monitor for changes to Cosmos DB
+        public async Task StartChangeProcessorAsync(string leaseContainerName)
+        {
+            try
+            {
+                _logger.LogInformation("Starting Cosmos DB Change Feed Processor");
+
+                // Get a reference to the lease container
+                Container leaseContainer = _cosmosClient.GetContainer(_databaseName, leaseContainerName);
+
+                // Create the lease container if it doesn't exist
+                try
+                {
+                    await leaseContainer.ReadContainerAsync();
+                    _logger.LogInformation("Lease container already exists: {Container}", leaseContainerName);
+                }
+                catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    _logger.LogInformation("Creating lease container: {Container}", leaseContainerName);
+                    await _cosmosClient.GetDatabase(_databaseName).CreateContainerAsync(
+                        new ContainerProperties(leaseContainerName, "/id"));
+                }
+
+                // Create and start the Change Feed processor
+                var processor = _container
+                    .GetChangeFeedProcessorBuilder<OutboxEntryModel>("StatusChangeProcessor", HandleChangesAsync)
+                    .WithInstanceName(Environment.MachineName)
+                    .WithLeaseContainer(leaseContainer)
+                    .Build();
+
+                await processor.StartAsync();
+                _logger.LogInformation("Change Feed Processor started successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting Change Feed Processor");
+                throw;
+            }
+        }
+
+        // Handler for processing changes from the Change Feed
+        private async Task HandleChangesAsync(IReadOnlyCollection<OutboxEntryModel> changes, CancellationToken cancellationToken)
+        {
+            try
+            {
+                _logger.LogInformation("Processing {Count} changes from Change Feed", changes.Count);
+
+                foreach (var item in changes)
+                {
+                    _logger.LogInformation("Change detected for document {Id} with status {Status}", item.Id, item.Status);
+                    
+                    // Send overall status update via SignalR
+                    await _signalRService.SendStatusUpdateAsync(item.Id, item.Status);
+                    
+                    // If image processing status is not pending, send update
+                    if (item.ImageProcessingStatus != "Pending")
+                    {
+                        await _signalRService.SendProcessingProgressAsync(item.Id, "ImageProcessing", item.ImageProcessingStatus);
+                    }
+                    
+                    // If script processing status is not pending, send update
+                    if (item.ScriptProcessingStatus != "Pending")
+                    {
+                        await _signalRService.SendProcessingProgressAsync(item.Id, "ScriptProcessing", item.ScriptProcessingStatus);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling changes from Change Feed");
+                // We don't rethrow here to prevent the Change Feed processor from stopping
             }
         }
     }
