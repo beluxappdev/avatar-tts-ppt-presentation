@@ -23,8 +23,8 @@ import LisaAvatar from '../assets/avatars/lisa.png';
 import LoriAvatar from '../assets/avatars/lori.png';
 import MaxAvatar from '../assets/avatars/max.png';
 
-// import DeleteIcon from '@mui/icons-material/Delete';
-// import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import DeleteIcon from '@mui/icons-material/Delete';
 // import MovieIcon from '@mui/icons-material/Movie';
 
 export interface EditorSlide {
@@ -146,9 +146,19 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
   };
 
   const onDragStart = (e: DragEvent<HTMLDivElement>, index: number) => {
+    // Check if the event target is within a TextField or its children
+    const target = e.target as HTMLElement;
+    const isTextField = target.closest('.MuiTextField-root') !== null;
+    
+    if (isTextField) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+    
     setDraggedItemIndex(index);
     if (e.dataTransfer) {
-        e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.effectAllowed = "move";
     }
   };
 
@@ -231,8 +241,6 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
           <Paper 
             key={slide.id}
             elevation={3}
-            draggable
-            onDragStart={(e) => onDragStart(e, index)}
             onDragOver={(e) => onDragOver(e, index)}
             onDragLeave={onDragLeave}
             onDrop={(e) => onDrop(e, index)}
@@ -242,7 +250,6 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
               display: 'flex', 
               alignItems: 'center', 
               gap: 1,
-              cursor: 'grab',
               opacity: draggedItemIndex === index ? 0.5 : 1,
               transition: 'all 0.2s ease',
               '&:hover': {
@@ -250,7 +257,22 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
               }
             }}
           >
-            {/* <DragIndicatorIcon sx={{ cursor: 'grab', color: 'action.active' }} /> */}
+            <Box
+              draggable
+              onDragStart={(e) => onDragStart(e, index)}
+              sx={{
+                cursor: 'grab',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '4px',
+                borderRadius: '4px',
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.05)'
+                }
+              }}
+            >
+              <DragIndicatorIcon sx={{ color: 'action.active' }} />
+            </Box>
             <Box sx={{ position: 'relative', width: 160, height: 90, flexShrink: 0, borderRadius: 1, overflow: 'hidden' }}>
               <CardMedia
                 component="img"
@@ -272,6 +294,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
                 {slide.title} (Index: {slide.index})
               </Typography>
               <TextField
+                className="slide-script-field"
                 label="Script"
                 multiline
                 fullWidth
@@ -281,7 +304,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
                 onChange={(e) => handleSlideChange(slide.id, 'script', e.target.value)}
                 minRows={2}
                 maxRows={4}
-                sx={{ mt: 1, mb: 1 }}
+                sx={{ mt: 1, mb: 1, userSelect: 'text!important' }}
               />
               
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
@@ -347,8 +370,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
               sx={{ flexShrink: 0 }}
               color="error"
             >
-              {/* <DeleteIcon /> */}
-              <Typography variant="caption">Delete</Typography>
+              <DeleteIcon />
             </IconButton>
           </Paper>
         ))}
