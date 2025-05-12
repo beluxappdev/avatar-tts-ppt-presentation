@@ -1,14 +1,27 @@
 
 version: '3.8'
 services:
+  frontend:
+    build:
+      context: ./frontend/
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080/api
   api:
     build:
       context: ./src/api/
       dockerfile: Dockerfile
     ports:
-      - "8080:80"
+      - "8080:8080"
     env_file:
       - .env
+    networks:
+      - api-network
+  
   image-extractor:
     build:
       context: ./src/extractors/
@@ -29,13 +42,7 @@ services:
       - EXTRACTOR_TYPE=script_extractor
     env_file:
       - .env
-  frontend:
-    build:
-      context: ./frontend/
-      dockerfile: Dockerfile
-    ports:
-      - "3000:80"
-    depends_on:
-      - api
-    environment:
-      - REACT_APP_API_URL=http://localhost:8080/api
+networks:
+  api-network:
+    driver: bridge
+ 
