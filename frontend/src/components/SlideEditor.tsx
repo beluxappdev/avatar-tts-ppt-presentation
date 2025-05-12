@@ -1,4 +1,4 @@
-import React, { useState, DragEvent, useEffect } from 'react';
+import React, { useState, DragEvent, useEffect, useMemo } from 'react';
 import {
   Box,
   CardContent,
@@ -25,7 +25,25 @@ import MaxAvatar from '../assets/avatars/max.png';
 
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import DeleteIcon from '@mui/icons-material/Delete';
-// import MovieIcon from '@mui/icons-material/Movie';
+
+const VOICE_OPTIONS = ['Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
+const AVATAR_SIZES = ['Small', 'Medium', 'Large'] as const;
+const AVATAR_POSITIONS = [
+  'Left', 
+  'Center', 
+  'Right', 
+  'UpperLeft', 
+  'UpperCenter', 
+  'UpperRight'
+] as const;
+
+const AVATAR_IMAGE_MAP = {
+  Harry: HarryAvatar,
+  Jeff: JeffAvatar,
+  Lisa: LisaAvatar,
+  Lori: LoriAvatar,
+  Max: MaxAvatar,
+};
 
 export interface EditorSlide {
   id: string;
@@ -33,33 +51,66 @@ export interface EditorSlide {
   title: string;
   thumbnailUrl: string;
   voice: string;
-  avatarSize: 'Small' | 'Medium' | 'Large';
-  avatarPosition: 'Left' | 'Center' | 'Right' | 'UpperLeft' | 'UpperCenter' | 'UpperRight';
+  avatarSize: typeof AVATAR_SIZES[number];
+  avatarPosition: typeof AVATAR_POSITIONS[number];
   script?: string;
 }
-
-const VOICE_OPTIONS = ['Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
-const AVATAR_SIZES: EditorSlide['avatarSize'][] = ['Small', 'Medium', 'Large'];
-const AVATAR_POSITIONS: EditorSlide['avatarPosition'][] = [
-  'Left', 
-  'Center', 
-  'Right', 
-  'UpperLeft', 
-  'UpperCenter', 
-  'UpperRight'
-];
 
 interface SlideEditorProps {
   slides: EditorSlide[];
   pptId: string | null;
 }
 
-const avatarImageMap: Record<string, string> = {
-  Harry: HarryAvatar,
-  Jeff: JeffAvatar,
-  Lisa: LisaAvatar,
-  Lori: LoriAvatar,
-  Max: MaxAvatar,
+const getAvatarImageUrl = (voice: string): string => {
+  return AVATAR_IMAGE_MAP[voice as keyof typeof AVATAR_IMAGE_MAP] || '';
+};
+
+const getAvatarStyle = (
+  size: EditorSlide['avatarSize'],
+  position: EditorSlide['avatarPosition']
+): React.CSSProperties => {
+  const style: React.CSSProperties = {
+    position: 'absolute',
+    objectFit: 'contain',
+    transition: 'all 0.3s ease',
+    pointerEvents: 'none',
+  };
+
+  switch (size) {
+    case 'Small': style.width = '30px'; style.height = '30px'; break;
+    case 'Medium': style.width = '50px'; style.height = '50px'; break;
+    case 'Large': style.width = '70px'; style.height = '70px'; break;
+  }
+
+  switch (position) {
+    case 'Left':
+      style.left = '5px';
+      style.bottom = '5px';
+      break;
+    case 'Center':
+      style.left = '50%';
+      style.bottom = '5px';
+      style.transform = 'translateX(-50%)';
+      break;
+    case 'Right':
+      style.right = '5px';
+      style.bottom = '5px';
+      break;
+    case 'UpperLeft':
+      style.left = '5px';
+      style.top = '5px';
+      break;
+    case 'UpperCenter':
+      style.left = '50%';
+      style.top = '5px';
+      style.transform = 'translateX(-50%)';
+      break;
+    case 'UpperRight':
+      style.right = '5px';
+      style.top = '5px';
+      break;
+  }
+  return style;
 };
 
 const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId }) => {
@@ -70,68 +121,6 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
   useEffect(() => {
     setSlides(initialSlides);
   }, [initialSlides]);
-
-  const getAvatarImageUrl = (voice: string): string => {
-    return avatarImageMap[voice] || '';
-  };
-
-  const getAvatarStyle = (
-    size: EditorSlide['avatarSize'],
-    position: EditorSlide['avatarPosition']
-  ): React.CSSProperties => {
-    const style: React.CSSProperties = {
-      position: 'absolute',
-      objectFit: 'contain',
-      transition: 'all 0.3s ease',
-      pointerEvents: 'none',
-    };
-
-   switch (size) {
-      case 'Small':
-        style.width = '30px';
-        style.height = '30px';
-        break;
-      case 'Medium':
-        style.width = '50px';
-        style.height = '50px';
-        break;
-      case 'Large':
-        style.width = '70px';
-        style.height = '70px';
-        break;
-    }
-
-    switch (position) {
-      case 'Left':
-        style.left = '5px';
-        style.bottom = '5px';
-        break;
-      case 'Center':
-        style.left = '50%';
-        style.bottom = '5px';
-        style.transform = 'translateX(-50%)';
-        break;
-      case 'Right':
-        style.right = '5px';
-        style.bottom = '5px';
-        break;
-      case 'UpperLeft':
-        style.left = '5px';
-        style.top = '5px';
-        break;
-      case 'UpperCenter':
-        style.left = '50%';
-        style.top = '5px';
-        style.transform = 'translateX(-50%)';
-        break;
-      case 'UpperRight':
-        style.right = '5px';
-        style.top = '5px';
-        break;
-    }
-    return style;
-  };
-
 
   const handleDeleteSlide = (id: string) => {
     setSlides(prevSlides => prevSlides.filter(slide => slide.id !== id));
@@ -146,14 +135,13 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
   };
 
   const onDragStart = (e: DragEvent<HTMLDivElement>, index: number) => {
-    // Check if the event target is within a TextField or its children
     const target = e.target as HTMLElement;
     const isTextField = target.closest('.MuiTextField-root') !== null;
     
     if (isTextField) {
       e.preventDefault();
       e.stopPropagation();
-      return false;
+      return;
     }
     
     setDraggedItemIndex(index);
@@ -165,9 +153,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
   const onDragOver = (e: DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
     const target = e.currentTarget as HTMLDivElement;
-    if (draggedItemIndex === null || draggedItemIndex === index) {
-      return;
-    }
+    
+    if (draggedItemIndex === null || draggedItemIndex === index) return;
+    
     target.style.borderTop = draggedItemIndex < index ? '2px solid #1976d2' : 'none';
     target.style.borderBottom = draggedItemIndex > index ? '2px solid #1976d2' : 'none';
   };
@@ -213,16 +201,170 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     }, 2000);
   };
 
+  const renderSlide = (slide: EditorSlide, index: number) => (
+    <Paper 
+      key={slide.id}
+      elevation={3}
+      onDragOver={(e) => onDragOver(e, index)}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => onDrop(e, index)}
+      onDragEnd={onDragEnd}
+      sx={{ 
+        p: 2, 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 1,
+        opacity: draggedItemIndex === index ? 0.5 : 1,
+        transition: 'all 0.2s ease',
+        '&:hover': {
+          backgroundColor: 'rgba(0, 0, 0, 0.02)'
+        }
+      }}
+    >
+      {/* Drag handle */}
+      <Box
+        draggable
+        onDragStart={(e) => onDragStart(e, index)}
+        sx={{
+          cursor: 'grab',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '4px',
+          borderRadius: '4px',
+          '&:hover': {
+            backgroundColor: 'rgba(0, 0, 0, 0.05)'
+          }
+        }}
+      >
+        <DragIndicatorIcon sx={{ color: 'action.active' }} />
+      </Box>
+      
+      {/* Slide thumbnail with avatar */}
+      <Box sx={{ 
+        position: 'relative', 
+        width: 160, 
+        height: 90, 
+        flexShrink: 0, 
+        borderRadius: 1, 
+        overflow: 'hidden' 
+      }}>
+        <CardMedia
+          component="img"
+          sx={{ width: '100%', height: '100%'}}
+          image={slide.thumbnailUrl}
+          alt={slide.title}
+        />
+        {getAvatarImageUrl(slide.voice) && (
+          <img
+            src={getAvatarImageUrl(slide.voice)}
+            alt={`${slide.voice} avatar`}
+            style={getAvatarStyle(slide.avatarSize, slide.avatarPosition)}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        )}
+      </Box>
+      
+      <CardContent sx={{ flexGrow: 1, p: '0 !important', ml: 1 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          {slide.title} (Index: {slide.index})
+        </Typography>
+        
+        {/* Script text-area/field */}
+        <TextField
+          className="slide-script-field"
+          label="Script"
+          multiline
+          fullWidth
+          variant="outlined"
+          size="small"
+          value={slide.script || ''}
+          onChange={(e) => handleSlideChange(slide.id, 'script', e.target.value)}
+          onMouseDown={(e) => e.stopPropagation()}
+          minRows={2}
+          maxRows={4}
+          sx={{ mt: 1, mb: 1, userSelect: 'text!important' }}
+        />
+        
+        {/* Voice config */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+          {/* Voice selector */}
+          <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Voice</InputLabel>
+              <Select
+                value={slide.voice}
+                label="Voice"
+                onChange={(e: SelectChangeEvent<string>) =>
+                  handleSlideChange(slide.id, 'voice', e.target.value)
+                }
+              >
+                {VOICE_OPTIONS.map(voice => (
+                  <MenuItem key={voice} value={voice}>{voice}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          
+          {/* Avatar size config */}
+          <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Avatar Size</InputLabel>
+              <Select
+                value={slide.avatarSize}
+                label="Avatar Size"
+                onChange={(e: SelectChangeEvent<string>) =>
+                  handleSlideChange(slide.id, 'avatarSize', e.target.value as EditorSlide['avatarSize'])
+                }
+              >
+                {AVATAR_SIZES.map(size => (
+                  <MenuItem key={size} value={size}>{size}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          
+          {/* Avatar position config */}
+          <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Avatar Position</InputLabel>
+              <Select
+                value={slide.avatarPosition}
+                label="Avatar Position"
+                onChange={(e: SelectChangeEvent<string>) =>
+                  handleSlideChange(slide.id, 'avatarPosition', e.target.value as EditorSlide['avatarPosition'])
+                }
+              >
+                {AVATAR_POSITIONS.map(pos => (
+                  <MenuItem key={pos} value={pos}>{pos}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </Box>
+      </CardContent>
+      
+      {/* Delete button */}
+      <IconButton
+        aria-label="delete slide"
+        onClick={() => handleDeleteSlide(slide.id)}
+        sx={{ flexShrink: 0 }}
+        color="error"
+      >
+        <DeleteIcon />
+      </IconButton>
+    </Paper>
+  );
+
   return (
     <Box sx={{ p: 2 }}>
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5">
           Slide Editor (PPT ID: {pptId || 'N/A'})
         </Typography>
         <Button 
           variant="contained" 
-          color="primary" 
-        //   startIcon={<MovieIcon />}
+          color="primary"
           disabled={slides.length === 0 || isProcessing}
           onClick={handleGenerateVideo}
         >
@@ -236,149 +378,18 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
         Drag slides to reorder them. Customize voice, avatar size, and position for each slide.
       </Typography>
       
+      {/* Slides list */}
       <Stack spacing={2}>
-        {slides.map((slide, index) => (
-          <Paper 
-            key={slide.id}
-            elevation={3}
-            onDragOver={(e) => onDragOver(e, index)}
-            onDragLeave={onDragLeave}
-            onDrop={(e) => onDrop(e, index)}
-            onDragEnd={onDragEnd}
-            sx={{ 
-              p: 2, 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 1,
-              opacity: draggedItemIndex === index ? 0.5 : 1,
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                backgroundColor: 'rgba(0, 0, 0, 0.02)'
-              }
-            }}
-          >
-            <Box
-              draggable
-              onDragStart={(e) => onDragStart(e, index)}
-              sx={{
-                cursor: 'grab',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '4px',
-                borderRadius: '4px',
-                '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.05)'
-                }
-              }}
-            >
-              <DragIndicatorIcon sx={{ color: 'action.active' }} />
-            </Box>
-            <Box sx={{ position: 'relative', width: 160, height: 90, flexShrink: 0, borderRadius: 1, overflow: 'hidden' }}>
-              <CardMedia
-                component="img"
-                sx={{ width: '100%', height: '100%'}}
-                image={slide.thumbnailUrl}
-                alt={slide.title}
-              />
-              {getAvatarImageUrl(slide.voice) && (
-                <img
-                  src={getAvatarImageUrl(slide.voice)}
-                  alt={`${slide.voice} avatar`}
-                  style={getAvatarStyle(slide.avatarSize, slide.avatarPosition)}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              )}
-            </Box>
-            <CardContent sx={{ flexGrow: 1, p: '0 !important', ml: 1 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                {slide.title} (Index: {slide.index})
-              </Typography>
-              <TextField
-                className="slide-script-field"
-                label="Script"
-                multiline
-                fullWidth
-                variant="outlined"
-                size="small"
-                value={slide.script || ''}
-                onChange={(e) => handleSlideChange(slide.id, 'script', e.target.value)}
-                minRows={2}
-                maxRows={4}
-                sx={{ mt: 1, mb: 1, userSelect: 'text!important' }}
-              />
-              
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Voice</InputLabel>
-                    <Select
-                      value={slide.voice}
-                      label="Voice"
-                      onChange={(e: SelectChangeEvent<string>) =>
-                        handleSlideChange(slide.id, 'voice', e.target.value as EditorSlide['voice'])
-                      }
-                    >
-                      {VOICE_OPTIONS.map(voice => (
-                        <MenuItem key={voice} value={voice}>
-                          {voice}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-                <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Avatar Size</InputLabel>
-                    <Select
-                      value={slide.avatarSize}
-                      label="Avatar Size"
-                      onChange={(e: SelectChangeEvent<string>) =>
-                        handleSlideChange(slide.id, 'avatarSize', e.target.value as EditorSlide['avatarSize'])
-                      }
-                    >
-                      {AVATAR_SIZES.map(size => (
-                        <MenuItem key={size} value={size}>
-                          {size}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-                <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Avatar Position</InputLabel>
-                    <Select
-                      value={slide.avatarPosition}
-                      label="Avatar Position"
-                      onChange={(e: SelectChangeEvent<string>) =>
-                        handleSlideChange(slide.id, 'avatarPosition', e.target.value as EditorSlide['avatarPosition'])
-                      }
-                    >
-                      {AVATAR_POSITIONS.map(pos => (
-                        <MenuItem key={pos} value={pos}>
-                          {pos}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-              </Box>
-            </CardContent>
-            <IconButton
-              aria-label="delete slide"
-              onClick={() => handleDeleteSlide(slide.id)}
-              sx={{ flexShrink: 0 }}
-              color="error"
-            >
-              <DeleteIcon />
-            </IconButton>
-          </Paper>
-        ))}
+        {slides.map(renderSlide)}
       </Stack>
 
+      {/* Empty state */}
       {slides.length === 0 && (
-        <Typography sx={{mt: 2}}>
-          {pptId ? "Waiting for slides to be processed or no slides found." : "Upload a presentation to see slides here."}
+        <Typography sx={{ mt: 2 }}>
+          {pptId 
+            ? "Waiting for slides to be processed or no slides found." 
+            : "Upload a presentation to see slides here."
+          }
         </Typography>
       )}
     </Box>

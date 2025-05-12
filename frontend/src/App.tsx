@@ -301,8 +301,9 @@ const App: React.FC = () => {
               ) : allProcessingComplete && slidesData.length === 0 && !overallStatusMessage?.includes("Error") ? (
                  <Typography>No slides were processed or found for this presentation.</Typography>
               ) : !allProcessingComplete && pptId ? (
-                <Box sx={{display: 'flex', justifyContent: 'center', my: 2}}>
-                   <CircularProgress /> <Typography sx={{ml:1}}>Processing presentation...</Typography>
+                <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'center', my: 2}}>
+                   <CircularProgress />
+                   <Typography sx={{ml:1, display: 'flex', alignItems: 'center'}}>Processing presentation...</Typography>
                 </Box>
               ) : null}
             </>
