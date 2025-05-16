@@ -14,7 +14,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import axios from 'axios';
@@ -23,11 +28,12 @@ import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import SettingsIcon from '@mui/icons-material/Settings';
+import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import MegBusinessAvatar from '../assets/meg-business-transparent.png';
 import HarryBusinessAvatar from '../assets/harry-business-transparent.png';
 
 interface Slide {
-  slideNumber: number;
+  index: number;
   blobUrl: string;
   script: string | null;
 }
@@ -50,12 +56,28 @@ interface SlideAvatarConfig {
   avatarType: AvatarType;
 }
 
+// Interface for the API payload
+interface VideoGenerationPayload {
+  pptId: string;
+  slides: Array<{
+    index: number;
+    script: string | null;
+    avatarConfig: SlideAvatarConfig;
+  }>;
+}
+
 const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) => {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  
+  // Video generation states
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoGenerationError, setVideoGenerationError] = useState<string | null>(null);
+  const [showDebugDialog, setShowDebugDialog] = useState(false);
+  const [debugPayload, setDebugPayload] = useState<string>('');
   
   // Default avatar configuration
   const defaultAvatarConfig: SlideAvatarConfig = {
@@ -97,9 +119,16 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
         }
         
         const data = response.data;
+
+        console.log('Slides data:', data);
         
         if (data.slides && data.slides.length > 0) {
-          setSlides(data.slides);
+          setSlides(data.slides.map((slide: any, index: number) => ({
+            index: index,
+            blobUrl: slide.blobUrl,
+            script: slide.script || null
+          })));
+          console.log('slides state:', slides);
           setCurrentSlide(0); // Start with the first slide
         } else {
           setError('No slides found for this presentation');
@@ -114,6 +143,43 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
 
     fetchSlides();
   }, [pptId]);
+
+  // Generate video with current configuration
+  const generateVideo = async () => {
+    try {
+      setIsGeneratingVideo(true);
+      setVideoGenerationError(null);
+      
+      // Prepare the payload
+      const payload: VideoGenerationPayload = {
+        pptId,
+        slides: slides.map(slide => ({
+          index: slide.index,
+          script: slide.script,
+          avatarConfig: slideConfigs[slide.index - 1] || defaultAvatarConfig
+        }))
+      };
+      
+      // Set debug payload for display
+      setDebugPayload(JSON.stringify(payload, null, 2));
+      
+      // Make the API call
+      const response = await axios.post('/api/generate_video', payload);
+      
+      if (response.status === 200) {
+        // Handle successful video generation
+        console.log('Video generation started successfully:', response.data);
+        // You might want to navigate to a video status page or show a success message
+      } else {
+        throw new Error(`Failed to generate video: ${response.status}`);
+      }
+    } catch (err) {
+      console.error('Error generating video:', err);
+      setVideoGenerationError(`Error generating video: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsGeneratingVideo(false);
+    }
+  };
 
   // Handle image load to get dimensions
   const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
@@ -216,7 +282,7 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
         height = '25%'; // 20% of slide width
         break;
       case 'large':
-        height = '100%'; // 40% of slide width
+        height = '75%'; // 40% of slide width
         break;
       case 'medium':
       default:
@@ -493,6 +559,39 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
           <Typography variant="h5">PowerPoint Viewer</Typography>
         </Box>
         
+        {/* Video Generation Section */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<VideoLibraryIcon />}
+              onClick={generateVideo}
+              disabled={isGeneratingVideo}
+              size="large"
+            >
+              {isGeneratingVideo ? 'Generating Video...' : 'Generate Video'}
+            </Button>
+            
+            <Button
+              variant="outlined"
+              onClick={() => setShowDebugDialog(true)}
+              size="large"
+            >
+              View Debug Info
+            </Button>
+            
+            {isGeneratingVideo && <CircularProgress size={24} />}
+          </Box>
+          
+          {videoGenerationError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              <AlertTitle>Video Generation Error</AlertTitle>
+              {videoGenerationError}
+            </Alert>
+          )}
+        </Box>
+        
         {/* Slide Navigation */}
         <Box
           sx={{
@@ -686,6 +785,41 @@ const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ pptId, onBack }) =>
           </Box>
         </Box>
       </CardContent>
+      
+      {/* Debug Dialog */}
+      <Dialog
+        open={showDebugDialog}
+        onClose={() => setShowDebugDialog(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>Debug: Video Generation Payload</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            This is the data that will be sent to /api/generate_video:
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={20}
+            value={debugPayload || 'Click "Generate Video" to see the payload'}
+            variant="outlined"
+            InputProps={{
+              readOnly: true,
+              style: { fontFamily: 'monospace', fontSize: '0.875rem' }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDebugDialog(false)}>Close</Button>
+          <Button
+            onClick={() => navigator.clipboard.writeText(debugPayload)}
+            variant="contained"
+          >
+            Copy to Clipboard
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 };

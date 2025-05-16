@@ -37,13 +37,9 @@ services:
       - EXTRACTOR_TYPE=script_extractor
     env_file:
       - .env
-  # ui:
-  #   build:
-  #     context: ./src/ui/
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "5000:5000"
-  #   depends_on:
-  #     - api
-  #   environment:
-  #     - API_URL=http://localhost:8080/api
+  video-generator:
+    build:
+      context: ./src/video-generator/
+      dockerfile: Dockerfile
+    env_file:
+      - .env

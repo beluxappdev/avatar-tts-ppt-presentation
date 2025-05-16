@@ -1,6 +1,7 @@
 import React from 'react';
 import { CssBaseline, Container, ThemeProvider, createTheme, AppBar, Toolbar, Typography, Box } from '@mui/material';
 import FileUpload from './components/FileUpload';
+import PowerPointViewer from './components/PowerPointViewer';
 
 // theme instance, change later
 const theme = createTheme({
@@ -45,6 +46,7 @@ const App: React.FC = () => {
       <Container>
         <Box sx={{ my: 4 }}>
           <FileUpload />
+          {/* <PowerPointViewer pptId='b9105836-dee3-4ce3-8400-b2cf094baff8' onBack={console.log}/> */}
         </Box>
       </Container>
     </ThemeProvider>

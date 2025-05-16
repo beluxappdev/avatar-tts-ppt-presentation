@@ -111,6 +111,13 @@ namespace PptProcessingApi.Services
                     _logger.LogInformation("Script processing status change notification sent for {Id}: {Status}", 
                         entry.Id, entry.ScriptProcessingStatus);
                 }
+                // Check if video processing status has changed
+                if (previousEntry == null || previousEntry.VideoProcessingStatus != entry.VideoProcessingStatus)
+                {
+                    await _signalRService.SendProcessingProgressAsync(entry.Id, "VideoProcessing", entry.VideoProcessingStatus);
+                    _logger.LogInformation("Video processing status change notification sent for {Id}: {Status}", 
+                        entry.Id, entry.VideoProcessingStatus);
+                }
                 
                 return response.Resource;
             }

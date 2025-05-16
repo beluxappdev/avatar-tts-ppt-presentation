@@ -81,6 +81,11 @@ Thumbs.db
 node_modules/
 *.sln
 next-steps.md
-*.txt
 *.http
 .azure/
+
+.venv/
+__pycache__/
+*.mp4
+*.webm
+*.png

@@ -69,7 +69,7 @@ namespace PptProcessingApi.Controllers
                 var outboxEntry = new OutboxEntryModel
                 {
                     Id = pptId,
-                    PartitionKey = userId, // Use userId as partition key for organization
+                    UserId = userId, // Use userId as partition key for organization
                     FileName = file.FileName,
                     BlobUrl = blobUrl,
                     MessageType = "PowerPointUploaded",
@@ -151,6 +151,114 @@ namespace PptProcessingApi.Controllers
             {
                 _logger.LogError(ex, "Error retrieving slides for pptId: {PptId}", pptId);
                 return StatusCode(500, new { message = "An error occurred while retrieving the slides" });
+            }
+        }
+
+        [HttpPost("generate_video")]
+        public async Task<IActionResult> GenerateVideo([FromBody] VideoGenerationRequest request, [FromQuery] string userId = "anonymous")
+        {
+            try
+            {
+                _logger.LogInformation("GenerateVideo endpoint called for pptId: {PptId} by user: {UserId}", request.PptId, userId);
+        
+                // Validate request
+                if (request == null || string.IsNullOrEmpty(request.PptId) || request.Slides == null || !request.Slides.Any())
+                {
+                    _logger.LogWarning("Invalid video generation request: {Request}", request);
+                    return BadRequest(new { message = "Invalid request. PptId and slides are required." });
+                }
+
+                // Verify that the PowerPoint exists
+                var outboxEntry = await _cosmosDbService.GetOutboxEntryAsync(request.PptId, userId);
+                if (outboxEntry == null)
+                {
+                    _logger.LogWarning("PowerPoint not found for video generation: {PptId}", request.PptId);
+                    return NotFound(new { message = $"PowerPoint with ID {request.PptId} not found" });
+                }
+
+                // Check if all required processing is completed
+                if (outboxEntry.ImageProcessingStatus != "Completed" || outboxEntry.ScriptProcessingStatus != "Completed")
+                {
+                    _logger.LogWarning("Slide processing not completed for pptId: {PptId}. Image: {ImageStatus}, Script: {ScriptStatus}", 
+                        request.PptId, outboxEntry.ImageProcessingStatus, outboxEntry.ScriptProcessingStatus);
+            
+                    return BadRequest(new {
+                        message = "Slide processing is not completed yet. Both images and scripts must be processed before generating video.",
+                        imageProcessingStatus = outboxEntry.ImageProcessingStatus,
+                        scriptProcessingStatus = outboxEntry.ScriptProcessingStatus
+                    });
+                }
+
+                // Check if video generation is already in progress or completed
+                if (outboxEntry.VideoProcessingStatus == "Pending" || outboxEntry.VideoProcessingStatus == "Processing")
+                {
+                    _logger.LogWarning("Video generation already in progress for pptId: {PptId}, current status: {Status}", 
+                        request.PptId, outboxEntry.VideoProcessingStatus);
+                    return BadRequest(new { 
+                        message = "Video generation is already in progress for this presentation.",
+                        videoProcessingStatus = outboxEntry.VideoProcessingStatus 
+                    });
+                }
+        
+                if (outboxEntry.VideoProcessingStatus == "Completed")
+                {
+                    return Ok(new { 
+                        message = "Video has already been generated for this presentation.",
+                        videoProcessingStatus = outboxEntry.VideoProcessingStatus,
+                    });
+                }
+
+                _logger.LogInformation("Starting video generation for pptId: {PptId}, userId: {UserId}", request.PptId, userId);
+
+                // Generate a unique job ID for this video generation request
+                string videoJobId = Guid.NewGuid().ToString();
+        
+                // Update the outbox entry to start video processing
+                outboxEntry.VideoProcessingStatus = "InProgress";
+                outboxEntry.VideoJobId = videoJobId;
+                outboxEntry.VideoTotalSlides = request.Slides.Count;
+                outboxEntry.VideoCompletedSlides = 0;
+                outboxEntry.VideoFailedSlides = 0;
+                outboxEntry.VideoStartedAt = DateTime.UtcNow;
+
+                await _cosmosDbService.UpdateOutboxEntryAsync(outboxEntry);
+        
+                // Send a message to Service Bus for each slide
+                var serviceBusService = HttpContext.RequestServices.GetRequiredService<ServiceBusService>();
+        
+                foreach (var slide in request.Slides)
+                {
+                    var slideVideoMessage = new SlideVideoGenerationMessage
+                    {
+                        JobId = videoJobId,
+                        PptId = request.PptId,
+                        SlideNumber = slide.Index,
+                        Script = slide.Script,
+                        AvatarConfig = slide.AvatarConfig,
+                        UserId = userId,
+                        CreatedAt = DateTimeOffset.UtcNow
+                    };
+
+                    await serviceBusService.SendSlideVideoMessageAsync(slideVideoMessage);
+                    _logger.LogInformation("Video generation message sent for slide {SlideNumber} of pptId: {PptId}, jobId: {JobId}", 
+                        slide.Index, request.PptId, videoJobId);
+                }
+
+                _logger.LogInformation("Video generation initiated for pptId: {PptId}, jobId: {JobId}, totalSlides: {TotalSlides}", 
+                    request.PptId, videoJobId, request.Slides.Count);
+
+                return Ok(new {
+                    jobId = videoJobId,
+                    message = $"Video generation started for {request.Slides.Count} slides",
+                    pptId = request.PptId,
+                    status = "InProgress",
+                    signalRHub = "/processingStatusHub"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing video generation request for pptId: {PptId}", request?.PptId);
+                return StatusCode(500, new { message = "An error occurred while processing your video generation request" });
             }
         }
     }
