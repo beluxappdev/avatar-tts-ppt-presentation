@@ -220,6 +220,14 @@ namespace PptProcessingApi.Controllers
                 outboxEntry.VideoCompletedSlides = 0;
                 outboxEntry.VideoFailedSlides = 0;
                 outboxEntry.VideoStartedAt = DateTime.UtcNow;
+                outboxEntry.VideoStatus = new List<VideoStatus>(
+                    request.Slides.Select(slide => new VideoStatus
+                    {
+                        SlideNumber = slide.Index.ToString(),
+                        Status = "Pending",
+                        VideoUrl = null
+                    })
+                );
 
                 await _cosmosDbService.UpdateOutboxEntryAsync(outboxEntry);
         

@@ -11,7 +11,7 @@ namespace PptProcessingApi.Models
     {
         [Required]
         public string PptId { get; set; }
-        
+
         [Required]
         public List<SlideVideoRequest> Slides { get; set; } = new List<SlideVideoRequest>();
     }
@@ -20,9 +20,9 @@ namespace PptProcessingApi.Models
     {
         [Required]
         public int Index { get; set; }
-        
+
         public string Script { get; set; }
-        
+
         [Required]
         public AvatarConfiguration AvatarConfig { get; set; }
     }

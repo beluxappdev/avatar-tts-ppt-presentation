@@ -40,6 +40,18 @@ namespace PptProcessingApi.Models
         public string Script { get; set; }
     }
 
+    public class VideoStatus
+    {
+        [JsonProperty("slideNumber")]
+        public string SlideNumber { get; set; }
+
+        [JsonProperty("status")]
+        public string Status { get; set; }
+
+        [JsonProperty("video_url")]
+        public String VideoUrl { get; set; }
+    }
+
     public class OutboxEntryModel
     {
         [JsonProperty("id")]
@@ -47,7 +59,7 @@ namespace PptProcessingApi.Models
 
         [JsonProperty("userId")]
         public string UserId { get; set; }
-        
+
         // This is the partition key but using a separate property for clarity
         public string PartitionKey => UserId;
 
@@ -59,25 +71,25 @@ namespace PptProcessingApi.Models
 
         [JsonProperty("imageProcessingStatus")]
         public string ImageProcessingStatus { get; set; } = "Pending"; // Pending, Processing, Completed, Failed
-        
+
         [JsonProperty("scriptProcessingStatus")]
         public string ScriptProcessingStatus { get; set; } = "Pending"; // Pending, Processing, Completed, Failed
 
         [JsonProperty("videoProcessingStatus")]
         public string VideoProcessingStatus { get; set; } = "NotReady"; // NotReady, Pending, Processing, Completed, Failed
-        
+
         [JsonProperty("imageProcessedAt")]
         public DateTime? ImageProcessedAt { get; set; }
-        
+
         [JsonProperty("scriptProcessedAt")]
         public DateTime? ScriptProcessedAt { get; set; }
 
         [JsonProperty("videoProcessedAt")]
         public DateTime? VideoProcessedAt { get; set; }
-        
+
         [JsonProperty("imageProcessingError")]
         public string ImageProcessingError { get; set; }
-        
+
         [JsonProperty("scriptProcessingError")]
         public string ScriptProcessingError { get; set; }
 
@@ -119,7 +131,7 @@ namespace PptProcessingApi.Models
 
         [JsonProperty("ttl")]
         public int? TimeToLive { get; set; } = 7 * 24 * 60 * 60; // 7 days in seconds
-        
+
         // Video processing related properties (for future use)
         [JsonProperty("videoJobId")]
         public string VideoJobId { get; set; }
@@ -135,6 +147,9 @@ namespace PptProcessingApi.Models
 
         [JsonProperty("videoUrl")]
         public string VideoUrl { get; set; }
+
+        [JsonProperty("videoStatus")]
+        public List<VideoStatus> VideoStatus { get; set; } = new List<VideoStatus>();
 
         [JsonProperty("videoStartedAt")]
         public DateTime? VideoStartedAt { get; set; }

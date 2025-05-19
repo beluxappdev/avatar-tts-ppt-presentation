@@ -280,9 +280,18 @@ class AvatarVideoGenerator:
             logger.info(f"Processing message for JobId: {message_data['JobId']}")
             
             # Extract required fields
+            ppt_id = message_data['PptId']
+            user_id = message_data['UserId']
+            slide_number = message_data['SlideNumber']
             job_id = message_data['JobId']
             script = message_data['Script']
             avatar_config = message_data['AvatarConfig']
+
+            result = await self.update_slide_status(ppt_id, user_id, slide_number, 'processing')
+
+            if not result['success']:
+                logger.error(f"Failed to update slide status to 'processing' for PPT {ppt_id}, slide {slide_number}")
+                return
             
             # Only process if avatar should be shown
             if not avatar_config.get('ShowAvatar', True):
@@ -322,6 +331,7 @@ class AvatarVideoGenerator:
         logger.info(f"Processing completed video for job {job_id}")
     
         ppt_id = message_data.get('PptId')
+        user_id = message_data.get('UserId')
         slide_number = message_data.get('SlideNumber')
     
         if not ppt_id or slide_number is None:
@@ -357,8 +367,20 @@ class AvatarVideoGenerator:
                 # Upload the transformed video to blob storage
                 video_blob_path = f"{ppt_id}/videos/{slide_number}.mp4"
                 await self._upload_to_blob(output_path, video_blob_path)
+
+                # Create the full video URL
+                video_url = f"{self.blob_endpoint}/{self.blob_container_name}/{video_blob_path}"
             
-                logger.info(f"Successfully processed video for job {job_id}, uploaded to {video_blob_path}")
+                # Update the status in Cosmos DB with concurrency control
+                result = await self.update_slide_status(
+                    ppt_id, user_id, slide_number, 'completed', video_url
+                )
+
+                if not result['success']:
+                    logger.error(f"Failed to update slide status to 'completed' for PPT {ppt_id}, slide {slide_number}")
+                    return
+            
+                logger.info(f"Successfully processed video for job {job_id}, uploaded to {video_blob_path}, for PPT {ppt_id}, slide {slide_number}")
             
             except Exception as e:
                 logger.error(f"Error processing video for job {job_id}: {str(e)}")
@@ -409,7 +431,118 @@ class AvatarVideoGenerator:
             await loop.run_in_executor(None, lambda: blob_client.upload_blob(data, overwrite=True))
     
         logger.info(f"Uploaded file {file_path} to blob {blob_path}")
+
+
+    async def update_slide_status(self, ppt_id: str, user_id: str, slide_number: int, status: str, video_url: str = None) -> Dict[str, Any]:
+        """
+        Update slide status with optimistic concurrency control and check if concatenation is needed
+    
+        Args:
+            ppt_id: PowerPoint presentation ID
+            user_id: User ID for partition key
+            slide_number: Slide number to update
+            status: New status ('pending', 'processing', 'completed', 'error')
+            video_url: URL of generated video (only for 'completed' status)
         
+        Returns:
+            Dict with:
+                'success': True if update was successful
+                'should_concatenate': True if this update made the presentation ready for concatenation
+                'completion_info': Dict with completion info if should_concatenate is True
+        """
+        max_retries = 3
+        retry_count = 0
+    
+        while retry_count < max_retries:
+            try:
+                # Read the current document to get its ETag
+                item = self.cosmos_container.read_item(item=ppt_id, partition_key=user_id)
+                etag = item['_etag']
+            
+                video_status = item.get('videoStatus', [])
+                should_concatenate = False
+            
+                # Find the slide with matching slide number
+                slide_status = next((s for s in video_status if s['slideNumber'] == str(slide_number)), None)
+            
+                if not slide_status:
+                    logger.error(f"Slide number {slide_number} not found in video status")
+                    return {'success': False, 'should_concatenate': False, 'completion_info': None}
+            
+                # Update the slide status
+                slide_index = video_status.index(slide_status)
+            
+                # Skip update if already completed (avoid regression)
+                if status == 'completed' and slide_status['status'] == 'completed':
+                    logger.info(f"Slide {slide_number} already marked as completed, skipping update")
+                    return {'success': True, 'should_concatenate': False, 'completion_info': None}
+                
+                # Update status and timestamps
+                video_status[slide_index]['status'] = status
+            
+                if status == 'processing':
+                    video_status[slide_index]['processingAt'] = datetime.utcnow().isoformat()
+                elif status == 'completed':
+                    video_status[slide_index]['completedAt'] = datetime.utcnow().isoformat()
+                    if video_url:
+                        video_status[slide_index]['videoUrl'] = video_url
+                
+                    item['videoCompletedSlides'] = item.get('videoCompletedSlides', 0) + 1
+                    
+                    # Check if all slides are completed
+                    if item['videoCompletedSlides'] == item.get('videoTotalSlides', 0) and item['videoProcessingStatus'] != 'concatenating':
+                        item['videoProcessingStatus'] = 'readyForConcatenation'
+                        should_concatenate = True
+
+                elif status == 'error':
+                    video_status[slide_index]['errorAt'] = datetime.utcnow().isoformat()
+            
+                # Update the document with optimistic concurrency control
+                try:
+                    self.cosmos_container.replace_item(
+                        item=item['id'],
+                        body=item,
+                        request_options={"if_match": etag}
+                    )
+                
+                    logger.info(f"Updated slide {slide_number} status to '{status}' for PPT {ppt_id}")
+                
+                    # If we should concatenate, gather the necessary info
+                    completion_info = None
+                    if should_concatenate:
+                        # Get video URLs in slide order
+                        video_status_sorted = sorted(video_status, key=lambda x: x['slideNumber'])
+                        video_urls = [s.get('videoUrl') for s in video_status_sorted 
+                                    if s.get('status') == 'completed' and s.get('videoUrl')]
+                    
+                        completion_info = {
+                            'total_slides': item.get('totalSlides', len(video_status)),
+                            'completed_slides': item['completedSlides'],
+                            'video_urls': video_urls
+                        }
+                
+                    logger.info(f"returrn will return success: {True}, should_concatenate: {should_concatenate}, completion_info: {completion_info}")
+                    return {
+                        'success': True, 
+                        'should_concatenate': should_concatenate,
+                        'completion_info': completion_info
+                    }
+                
+                except Exception as e:
+                    if "access condition" in str(e).lower() or "412" in str(e):
+                        # Concurrency conflict - another process updated the document
+                        retry_count += 1
+                        logger.warning(f"Concurrency conflict on attempt {retry_count}, retrying...")
+                        continue  # Retry the operation
+                    else:
+                        raise  # Re-raise if it's some other error
+        
+            except Exception as e:
+                logger.error(f"Error updating slide status: {str(e)}")
+                return {'success': False, 'should_concatenate': False, 'completion_info': None}
+    
+        logger.error(f"Failed to update slide status after {max_retries} retries due to concurrency conflicts")
+        return {'success': False, 'should_concatenate': False, 'completion_info': None}
     
 
     async def run(self):
@@ -431,7 +564,7 @@ class AvatarVideoGenerator:
                             lock_renewal_task = asyncio.create_task(
                                 self._renew_message_lock_periodically(receiver, message)
                             )
-                        
+
                             # Process the message
                             await self.process_message(str(message))
                         

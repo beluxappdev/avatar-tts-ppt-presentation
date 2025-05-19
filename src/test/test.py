@@ -29,7 +29,7 @@ avatar_video = avatar_video.resized(1)  # Sizes are 0.25, 0.5, 0.75 which will b
 print(f"Avatar video size: {avatar_video.size}")
 # x, y = avatar_video.size
 # x+= OFFSET_MEDIUM_SIZE
-avatar_video = avatar_video.with_position(("right", "bottom"))  # Position the avatar video on the right side of the screen
+avatar_video = avatar_video.with_position(("right", "bottom"))  # Can be "left", "right", "center", on y axis is always "bottom"
 # print(f"x: {x}, y: {y}")
 
 
