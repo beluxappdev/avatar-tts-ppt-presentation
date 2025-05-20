@@ -15,8 +15,11 @@ import {
   Divider,
   Stack,
   TextField,
-  Collapse
+  Collapse,
+  Alert
 } from '@mui/material';
+
+import axios from 'axios';
 
 // reset all
 // restore deleted
@@ -151,6 +154,10 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
   const [expandedSlides, setExpandedSlides] = useState<Record<string, boolean>>({});
   const [allExpanded, setAllExpanded] = useState(true);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
   useEffect(() => {
     setSlides(initialSlides);
     const newExpandedState: Record<string, boolean> = {};
@@ -248,13 +255,62 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     setDraggedItemIndex(null);
   };
 
-  const handleGenerateVideo = () => {
+const handleGenerateVideo = async () => {
+    if (!pptId) {
+      console.error("Missing PPT ID");
+      return;
+    }
+
     setIsProcessing(true);
-    console.log("Generating video with slides data:", slides);
-    setTimeout(() => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+    
+    try {
+      const formattedSlides = slides.map(slide => ({
+        index: slide.index,
+        script: slide.script || "",
+        avatarConfig: {
+          showAvatar: true,
+          avatarPosition: slide.avatarPosition.toLowerCase(),
+          avatarSize: slide.avatarSize.toLowerCase(),
+          avatarType: slide.voice.toLowerCase()
+        }
+      }));
+
+      const requestBody = {
+        pptId: pptId,
+        userId: "K2SO",
+        slides: formattedSlides
+      };
+
+      console.log("Sending video generation request:", requestBody);
+      
+      const response = await axios.post(
+        'http://localhost:8080/api/generate_video',
+        requestBody,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log("Video generation response:", response.data);
+      setSubmitSuccess(true);
+    } catch (error) {
+      console.error("Error generating video:", error);
+      setSubmitError(error instanceof Error ? error.message : "An error occurred during video generation");
+    } finally {
       setIsProcessing(false);
-      alert('Video generation sent');
-    }, 2000);
+      setIsSubmitting(false);
+      
+      if (!submitError) {
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 5000);
+      }
+    }
   };
 
   const renderSlide = (slide: EditorSlide, index: number) => {
@@ -469,6 +525,22 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
       </Box>
       
       <Divider sx={{ mb: 2 }} />
+
+      {submitSuccess && (
+        <Box sx={{ mb: 2 }}>
+          <Alert severity="success">
+            Video generation request submitted successfully!
+          </Alert>
+        </Box>
+      )}
+
+      {submitError && (
+        <Box sx={{ mb: 2 }}>
+          <Alert severity="error">
+            Error: {submitError}
+          </Alert>
+        </Box>
+      )}
       
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Drag slides to reorder them. {allExpanded ? 'Use the collapse buttons to focus on slide content.' : 'Use the expand buttons to configure avatar settings.'}
