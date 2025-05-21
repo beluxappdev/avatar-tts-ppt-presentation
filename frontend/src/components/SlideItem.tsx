@@ -18,17 +18,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { EditorSlide } from './SlideEditor';
 import { getAvatarImageUrl, getAvatarStyle } from '../utils/avatarUtils';
-
-const VOICE_OPTIONS = ['Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
-const AVATAR_SIZES = ['Small', 'Medium', 'Large'] as const;
-const AVATAR_POSITIONS = [
-  'Left', 
-  'Center', 
-  'Right', 
-  'UpperLeft', 
-  'UpperCenter', 
-  'UpperRight'
-] as const;
+import { VOICE_OPTIONS, AVATAR_SIZES, AVATAR_POSITIONS } from './SlideEditor';
 
 interface SlideItemProps {
   slide: EditorSlide;
@@ -106,11 +96,11 @@ const SlideItem: React.FC<SlideItemProps> = ({
           <DragIndicatorIcon sx={{ color: 'action.active' }} />
         </Box>
         
-        {/* Slide thumbnail with avatar - enlarged when collapsed */}
+        {/* Slide thumbnail with avatar */}
         <Box sx={{ 
           position: 'relative', 
-          width: isExpanded ? 160 : 240, 
-          height: isExpanded ? 90 : 135,
+          width: isExpanded ? 200 : 480,
+          height: isExpanded ? 112 : 270,
           flexShrink: 0, 
           borderRadius: 1, 
           overflow: 'hidden',
@@ -142,22 +132,6 @@ const SlideItem: React.FC<SlideItemProps> = ({
           <Typography variant="subtitle1">
             {slide.title} (Index: {slide.index})
           </Typography>
-          
-          {/* Always show script even when collapsed */}
-          <TextField
-            className="slide-script-field"
-            label="Script"
-            multiline
-            fullWidth
-            variant="outlined"
-            size="small"
-            value={slide.script || ''}
-            onChange={(e) => onSlideChange(slide.id, 'script', e.target.value)}
-            onMouseDown={(e) => e.stopPropagation()}
-            minRows={2}
-            maxRows={isExpanded ? 2 : 4}
-            sx={{ mt: 1, mb: 1, userSelect: 'text!important' }}
-          />
         </Box>
         
         {/* Control buttons */}
@@ -181,6 +155,21 @@ const SlideItem: React.FC<SlideItemProps> = ({
 
       {/* Collapsible configuration section */}
       <Collapse in={isExpanded} sx={{ width: '100%' }}>
+        <TextField
+          className="slide-script-field"
+          label="Script"
+          multiline
+          fullWidth
+          variant="outlined"
+          size="small"
+          value={slide.script || ''}
+          onChange={(e) => onSlideChange(slide.id, 'script', e.target.value)}
+          onMouseDown={(e) => e.stopPropagation()}
+          minRows={3}
+          maxRows={5}
+          sx={{ mt: 2, mb: 2, userSelect: 'text!important' }}
+        />
+        
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1, width: '100%' }}>
           {/* Voice selector */}
           <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>

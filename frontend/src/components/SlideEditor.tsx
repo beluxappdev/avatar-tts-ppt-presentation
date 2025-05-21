@@ -19,6 +19,29 @@ export const AVATAR_POSITIONS = [
   'UpperRight'
 ] as const;
 
+// TODO
+// Comments on code
+// CONST URL
+// Global user state + Login
+// Session history (refresh page)
+// Gallery
+// Fix indexes after dragging
+// Editable slide title?
+// Gallery functionality
+// Better dragging
+// Clean up component again
+// Drag and drop avatar (add back)
+// FIX avatar size when collapsing <-> expanding
+// FIX undo redo dragged slides
+// Clean up text on UI, currently a bit too verbose
+// Large amount of slides? 
+// Gradual loading of processed slides => user can start working on them as we are processing
+// Mass change all settings/only specific settings (e.g. all slides need to be in Harry's voice on the top left, small)
+// Hide avatar
+
+
+//rm debounce, show, crop images more
+
 export interface EditorSlide {
   id: string;
   index: number;
@@ -92,14 +115,15 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     setExpandedSlides(newExpandedState);
   }, [initialSlides]);
 
-  // handle expansion state changes
+  // handle expansion state
   useEffect(() => {
     const newExpandedState: Record<string, boolean> = {};
     slides.forEach(slide => {
-      newExpandedState[slide.id] = allExpanded;
+      newExpandedState[slide.id] = expandedSlides[slide.id] !== undefined ? 
+        expandedSlides[slide.id] : allExpanded;
     });
     setExpandedSlides(newExpandedState);
-  }, [allExpanded, slides]);
+  }, [allExpanded, slides.length]);
 
   const addToHistory = useCallback((newSlides: EditorSlide[], description: string) => {
     const newHistoryItem: SlideHistory = {
