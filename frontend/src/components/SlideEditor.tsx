@@ -14,12 +14,8 @@ import {
   Paper,
   Divider,
   Stack,
-  TextField,
-  Collapse
+  TextField
 } from '@mui/material';
-
-// reset all
-// restore deleted
 
 import HarryAvatar from '../assets/avatars/harry.png';
 import JeffAvatar from '../assets/avatars/jeff.png';
@@ -29,8 +25,6 @@ import MaxAvatar from '../assets/avatars/max.png';
 
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
 const VOICE_OPTIONS = ['Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
 const AVATAR_SIZES = ['Small', 'Medium', 'Large'] as const;
@@ -73,8 +67,7 @@ const getAvatarImageUrl = (voice: string): string => {
 
 const getAvatarStyle = (
   size: EditorSlide['avatarSize'],
-  position: EditorSlide['avatarPosition'],
-  isExpanded: boolean
+  position: EditorSlide['avatarPosition']
 ): React.CSSProperties => {
   const style: React.CSSProperties = {
     position: 'absolute',
@@ -83,62 +76,38 @@ const getAvatarStyle = (
     pointerEvents: 'none',
   };
 
-  let baseAvatarWidth: number;
-  let baseAvatarHeight: number;
-  const baseOffset = 5;
-
   switch (size) {
-  case 'Small':
-    baseAvatarWidth = 30;
-    baseAvatarHeight = 30;
-    break;
-  case 'Medium':
-    baseAvatarWidth = 50;
-    baseAvatarHeight = 50;
-    break;
-  case 'Large':
-    baseAvatarWidth = 70;
-    baseAvatarHeight = 70;
-    break;
-  default:
-    baseAvatarWidth = 50; 
-    baseAvatarHeight = 50;
+    case 'Small': style.width = '30px'; style.height = '30px'; break;
+    case 'Medium': style.width = '50px'; style.height = '50px'; break;
+    case 'Large': style.width = '70px'; style.height = '70px'; break;
   }
-
-  const scaleFactor = isExpanded ? 1 : 1.5; 
-
-  style.width = `${baseAvatarWidth * scaleFactor}px`;
-  style.height = `${baseAvatarHeight * scaleFactor}px`;
-  const currentOffset = `${baseOffset * scaleFactor}px`;
 
   switch (position) {
     case 'Left':
-      style.left = currentOffset;
-      style.bottom = currentOffset;
+      style.left = '5px';
+      style.bottom = '5px';
       break;
     case 'Center':
       style.left = '50%';
-      style.bottom = currentOffset;
-      style.transform = `translateX(-50%) scale(${scaleFactor})`;
-      style.transformOrigin = 'bottom center';
+      style.bottom = '5px';
+      style.transform = 'translateX(-50%)';
       break;
     case 'Right':
-      style.right = currentOffset;
-      style.bottom = currentOffset;
+      style.right = '5px';
+      style.bottom = '5px';
       break;
     case 'UpperLeft':
-      style.left = currentOffset;
-      style.top = currentOffset;
+      style.left = '5px';
+      style.top = '5px';
       break;
     case 'UpperCenter':
       style.left = '50%';
-      style.top = currentOffset;
-      style.transform = `translateX(-50%) scale(${scaleFactor})`;
-      style.transformOrigin = 'top center';
+      style.top = '5px';
+      style.transform = 'translateX(-50%)';
       break;
     case 'UpperRight':
-      style.right = currentOffset;
-      style.top = currentOffset;
+      style.right = '5px';
+      style.top = '5px';
       break;
   }
   return style;
@@ -148,16 +117,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
   const [slides, setSlides] = useState<EditorSlide[]>(initialSlides);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [expandedSlides, setExpandedSlides] = useState<Record<string, boolean>>({});
-  const [allExpanded, setAllExpanded] = useState(true);
 
   useEffect(() => {
     setSlides(initialSlides);
-    const newExpandedState: Record<string, boolean> = {};
-    initialSlides.forEach(slide => {
-      newExpandedState[slide.id] = allExpanded;
-    });
-    setExpandedSlides(newExpandedState);
   }, [initialSlides]);
 
   const handleDeleteSlide = (id: string) => {
@@ -170,24 +132,6 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
         slide.id === id ? { ...slide, [field]: value } : slide
       )
     );
-  };
-
-  const toggleSlideExpansion = (id: string) => {
-    setExpandedSlides(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
-
-  const toggleAllExpansion = () => {
-    const newExpandedState = !allExpanded;
-    setAllExpanded(newExpandedState);
-    
-    const newExpandedSlides: Record<string, boolean> = {};
-    slides.forEach(slide => {
-      newExpandedSlides[slide.id] = newExpandedState;
-    });
-    setExpandedSlides(newExpandedSlides);
   };
 
   const onDragStart = (e: DragEvent<HTMLDivElement>, index: number) => {
@@ -257,189 +201,159 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     }, 2000);
   };
 
-  const renderSlide = (slide: EditorSlide, index: number) => {
-    const isExpanded = expandedSlides[slide.id] !== undefined ? expandedSlides[slide.id] : true;
-    
-    return (
-      <Paper 
-        key={slide.id}
-        elevation={3}
-        onDragOver={(e) => onDragOver(e, index)}
-        onDragLeave={onDragLeave}
-        onDrop={(e) => onDrop(e, index)}
-        onDragEnd={onDragEnd}
-        sx={{ 
-          p: 2, 
-          display: 'flex', 
-          flexDirection: 'column',
-          alignItems: 'flex-start', 
-          gap: 1,
-          opacity: draggedItemIndex === index ? 0.5 : 1,
-          transition: 'all 0.2s ease',
+  const renderSlide = (slide: EditorSlide, index: number) => (
+    <Paper 
+      key={slide.id}
+      elevation={3}
+      onDragOver={(e) => onDragOver(e, index)}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => onDrop(e, index)}
+      onDragEnd={onDragEnd}
+      sx={{ 
+        p: 2, 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 1,
+        opacity: draggedItemIndex === index ? 0.5 : 1,
+        transition: 'all 0.2s ease',
+        '&:hover': {
+          backgroundColor: 'rgba(0, 0, 0, 0.02)'
+        }
+      }}
+    >
+      {/* Drag handle */}
+      <Box
+        draggable
+        onDragStart={(e) => onDragStart(e, index)}
+        sx={{
+          cursor: 'grab',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '4px',
+          borderRadius: '4px',
           '&:hover': {
-            backgroundColor: 'rgba(0, 0, 0, 0.02)'
+            backgroundColor: 'rgba(0, 0, 0, 0.05)'
           }
         }}
       >
-        {/* Top row with drag handle, thumbnail, title and control buttons */}
-        <Box sx={{ 
-          display: 'flex', 
-          width: '100%',
-          alignItems: 'center', 
-          gap: 2 
-        }}>
-          {/* Drag handle */}
-          <Box
-            draggable
-            onDragStart={(e) => onDragStart(e, index)}
-            sx={{
-              cursor: 'grab',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '4px',
-              borderRadius: '4px',
-              '&:hover': {
-                backgroundColor: 'rgba(0, 0, 0, 0.05)'
-              }
-            }}
-          >
-            <DragIndicatorIcon sx={{ color: 'action.active' }} />
+        <DragIndicatorIcon sx={{ color: 'action.active' }} />
+      </Box>
+      
+      {/* Slide thumbnail with avatar */}
+      <Box sx={{ 
+        position: 'relative', 
+        width: 160, 
+        height: 90, 
+        flexShrink: 0, 
+        borderRadius: 1, 
+        overflow: 'hidden' 
+      }}>
+        <CardMedia
+          component="img"
+          sx={{ width: '100%', height: '100%'}}
+          image={slide.thumbnailUrl}
+          alt={slide.title}
+        />
+        {getAvatarImageUrl(slide.voice) && (
+          <img
+            src={getAvatarImageUrl(slide.voice)}
+            alt={`${slide.voice} avatar`}
+            style={getAvatarStyle(slide.avatarSize, slide.avatarPosition)}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        )}
+      </Box>
+      
+      <CardContent sx={{ flexGrow: 1, p: '0 !important', ml: 1 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          {slide.title} (Index: {slide.index})
+        </Typography>
+        
+        {/* Script text-area/field */}
+        <TextField
+          className="slide-script-field"
+          label="Script"
+          multiline
+          fullWidth
+          variant="outlined"
+          size="small"
+          value={slide.script || ''}
+          onChange={(e) => handleSlideChange(slide.id, 'script', e.target.value)}
+          onMouseDown={(e) => e.stopPropagation()}
+          minRows={2}
+          maxRows={4}
+          sx={{ mt: 1, mb: 1, userSelect: 'text!important' }}
+        />
+        
+        {/* Voice config */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+          {/* Voice selector */}
+          <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Voice</InputLabel>
+              <Select
+                value={slide.voice}
+                label="Voice"
+                onChange={(e: SelectChangeEvent<string>) =>
+                  handleSlideChange(slide.id, 'voice', e.target.value)
+                }
+              >
+                {VOICE_OPTIONS.map(voice => (
+                  <MenuItem key={voice} value={voice}>{voice}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
           
-          {/* Slide thumbnail with avatar - enlarged when collapsed */}
-          <Box sx={{ 
-            position: 'relative', 
-            width: isExpanded ? 160 : 240, 
-            height: isExpanded ? 90 : 135,
-            flexShrink: 0, 
-            borderRadius: 1, 
-            overflow: 'hidden',
-            transition: 'all 0.3s ease',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-            '&:hover': {
-              boxShadow: '0 3px 10px rgba(0,0,0,0.2)',
-              transform: 'translateY(-2px)',
-              filter: 'brightness(1.05)',
-            }
-          }}>
-            <CardMedia
-              component="img"
-              sx={{ width: '100%', height: '100%'}}
-              image={slide.thumbnailUrl}
-              alt={slide.title}
-            />
-            {getAvatarImageUrl(slide.voice) && (
-              <img
-                src={getAvatarImageUrl(slide.voice)}
-                alt={`${slide.voice} avatar`}
-                style={getAvatarStyle(slide.avatarSize, slide.avatarPosition, isExpanded)}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            )}
+          {/* Avatar size config */}
+          <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Avatar Size</InputLabel>
+              <Select
+                value={slide.avatarSize}
+                label="Avatar Size"
+                onChange={(e: SelectChangeEvent<string>) =>
+                  handleSlideChange(slide.id, 'avatarSize', e.target.value as EditorSlide['avatarSize'])
+                }
+              >
+                {AVATAR_SIZES.map(size => (
+                  <MenuItem key={size} value={size}>{size}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
           
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="subtitle1">
-              {slide.title} (Index: {slide.index})
-            </Typography>
-            
-            {/* Always show script even when collapsed */}
-            <TextField
-              className="slide-script-field"
-              label="Script"
-              multiline
-              fullWidth
-              variant="outlined"
-              size="small"
-              value={slide.script || ''}
-              onChange={(e) => handleSlideChange(slide.id, 'script', e.target.value)}
-              onMouseDown={(e) => e.stopPropagation()}
-              minRows={2}
-              maxRows={isExpanded ? 2 : 4}
-              sx={{ mt: 1, mb: 1, userSelect: 'text!important' }}
-            />
-          </Box>
-          
-          {/* Control buttons */}
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <IconButton 
-              size="small" 
-              onClick={() => toggleSlideExpansion(slide.id)}
-              aria-label={isExpanded ? "Collapse" : "Expand"}
-            >
-              {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
-            <IconButton
-              aria-label="delete slide"
-              onClick={() => handleDeleteSlide(slide.id)}
-              color="error"
-            >
-              <DeleteIcon />
-            </IconButton>
+          {/* Avatar position config */}
+          <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Avatar Position</InputLabel>
+              <Select
+                value={slide.avatarPosition}
+                label="Avatar Position"
+                onChange={(e: SelectChangeEvent<string>) =>
+                  handleSlideChange(slide.id, 'avatarPosition', e.target.value as EditorSlide['avatarPosition'])
+                }
+              >
+                {AVATAR_POSITIONS.map(pos => (
+                  <MenuItem key={pos} value={pos}>{pos}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </Box>
-
-        {/* Collapsible configuration section */}
-        <Collapse in={isExpanded} sx={{ width: '100%' }}>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1, width: '100%' }}>
-            {/* Voice selector */}
-            <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Voice</InputLabel>
-                <Select
-                  value={slide.voice}
-                  label="Voice"
-                  onChange={(e: SelectChangeEvent<string>) =>
-                    handleSlideChange(slide.id, 'voice', e.target.value)
-                  }
-                >
-                  {VOICE_OPTIONS.map(voice => (
-                    <MenuItem key={voice} value={voice}>{voice}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-            
-            {/* Avatar size config */}
-            <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Avatar Size</InputLabel>
-                <Select
-                  value={slide.avatarSize}
-                  label="Avatar Size"
-                  onChange={(e: SelectChangeEvent<string>) =>
-                    handleSlideChange(slide.id, 'avatarSize', e.target.value as EditorSlide['avatarSize'])
-                  }
-                >
-                  {AVATAR_SIZES.map(size => (
-                    <MenuItem key={size} value={size}>{size}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-            
-            {/* Avatar position config */}
-            <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Avatar Position</InputLabel>
-                <Select
-                  value={slide.avatarPosition}
-                  label="Avatar Position"
-                  onChange={(e: SelectChangeEvent<string>) =>
-                    handleSlideChange(slide.id, 'avatarPosition', e.target.value as EditorSlide['avatarPosition'])
-                  }
-                >
-                  {AVATAR_POSITIONS.map(pos => (
-                    <MenuItem key={pos} value={pos}>{pos}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-          </Box>
-        </Collapse>
-      </Paper>
-    );
-  };
+      </CardContent>
+      
+      {/* Delete button */}
+      <IconButton
+        aria-label="delete slide"
+        onClick={() => handleDeleteSlide(slide.id)}
+        sx={{ flexShrink: 0 }}
+        color="error"
+      >
+        <DeleteIcon />
+      </IconButton>
+    </Paper>
+  );
 
   return (
     <Box sx={{ p: 2 }}>
@@ -448,30 +362,20 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
         <Typography variant="h5">
           Slide Editor (PPT ID: {pptId || 'N/A'})
         </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button 
-            variant="outlined"
-            onClick={toggleAllExpansion}
-            startIcon={allExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          >
-            {allExpanded ? 'Collapse All' : 'Expand All'}
-          </Button>
-          <Button 
-            variant="contained" 
-            color="primary"
-            disabled={slides.length === 0 || isProcessing}
-            onClick={handleGenerateVideo}
-          >
-            {isProcessing ? 'Processing...' : 'Generate Video'}
-          </Button>
-        </Box>
+        <Button 
+          variant="contained" 
+          color="primary"
+          disabled={slides.length === 0 || isProcessing}
+          onClick={handleGenerateVideo}
+        >
+          {isProcessing ? 'Processing...' : 'Generate Video'}
+        </Button>
       </Box>
       
       <Divider sx={{ mb: 2 }} />
       
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Drag slides to reorder them. {allExpanded ? 'Use the collapse buttons to focus on slide content.' : 'Use the expand buttons to configure avatar settings.'}
+        Drag slides to reorder them. Customize voice, avatar size, and position for each slide.
       </Typography>
       
       {/* Slides list */}
