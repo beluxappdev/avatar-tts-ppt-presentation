@@ -118,7 +118,7 @@ const SlideItem: React.FC<SlideItemProps> = ({
             image={slide.thumbnailUrl}
             alt={slide.title}
           />
-          {getAvatarImageUrl(slide.voice) && (
+          {slide.voice !== 'None' && (
             <img
               src={getAvatarImageUrl(slide.voice)}
               alt={`${slide.voice} avatar`}
