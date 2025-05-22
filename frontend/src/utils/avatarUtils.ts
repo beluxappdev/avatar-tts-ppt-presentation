@@ -14,14 +14,21 @@ export const AVATAR_IMAGE_MAP = {
 };
 
 export const getAvatarImageUrl = (voice: string): string => {
+  if (voice === 'None') return '';
   return AVATAR_IMAGE_MAP[voice as keyof typeof AVATAR_IMAGE_MAP] || '';
 };
 
 export const getAvatarStyle = (
+  voice: string,
   size: EditorSlide['avatarSize'],
   position: EditorSlide['avatarPosition'],
   isExpanded: boolean
 ): React.CSSProperties => {
+  // If voice is "None", return style with display: none
+  if (voice === 'None') {
+    return { display: 'none' };
+  }
+
   const style: React.CSSProperties = {
     position: 'absolute',
     objectFit: 'contain',

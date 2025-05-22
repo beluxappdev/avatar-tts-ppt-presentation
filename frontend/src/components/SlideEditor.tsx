@@ -8,7 +8,7 @@ import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import HistoryIcon from '@mui/icons-material/History';
 
-export const VOICE_OPTIONS = ['Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
+export const VOICE_OPTIONS = ['None', 'Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
 export const AVATAR_SIZES = ['Small', 'Medium', 'Large'] as const;
 export const AVATAR_POSITIONS = [
   'Left', 
@@ -227,10 +227,10 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
         index: slide.index,
         script: slide.script || "",
         avatarConfig: {
-          showAvatar: true,
+          showAvatar: slide.voice !== "None",
           avatarPosition: slide.avatarPosition.toLowerCase(),
           avatarSize: slide.avatarSize.toLowerCase(),
-          avatarType: slide.voice.toLowerCase()
+          avatarType: slide.voice === "None" ? "" : slide.voice.toLowerCase()
         }
       }));
 

@@ -122,7 +122,7 @@ const SlideItem: React.FC<SlideItemProps> = ({
             <img
               src={getAvatarImageUrl(slide.voice)}
               alt={`${slide.voice} avatar`}
-              style={getAvatarStyle(slide.avatarSize, slide.avatarPosition, isExpanded)}
+              style={getAvatarStyle(slide.voice, slide.avatarSize, slide.avatarPosition, isExpanded)}
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           )}
@@ -191,10 +191,10 @@ const SlideItem: React.FC<SlideItemProps> = ({
           
           {/* Avatar size config */}
           <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" disabled={slide.voice === 'None'}>
               <InputLabel>Avatar Size</InputLabel>
               <Select
-                value={slide.avatarSize}
+                value={slide.voice === 'None' ? 'Medium' : slide.avatarSize}
                 label="Avatar Size"
                 onChange={(e: SelectChangeEvent<string>) =>
                   onSlideChange(slide.id, 'avatarSize', e.target.value as EditorSlide['avatarSize'])
@@ -206,13 +206,13 @@ const SlideItem: React.FC<SlideItemProps> = ({
               </Select>
             </FormControl>
           </Box>
-          
+
           {/* Avatar position config */}
           <Box sx={{ width: { xs: '100%', sm: 'calc(33.33% - 8px)' } }}>
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" disabled={slide.voice === 'None'}>
               <InputLabel>Avatar Position</InputLabel>
               <Select
-                value={slide.avatarPosition}
+                value={slide.voice === 'None' ? 'Center' : slide.avatarPosition}
                 label="Avatar Position"
                 onChange={(e: SelectChangeEvent<string>) =>
                   onSlideChange(slide.id, 'avatarPosition', e.target.value as EditorSlide['avatarPosition'])
