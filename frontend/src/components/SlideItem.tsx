@@ -70,7 +70,7 @@ const SlideItem: React.FC<SlideItemProps> = ({
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, index)}
       onDragEnd={onDragEnd}
-    >
+    > 
       {/* Top row with drag handle, thumbnail, title and control buttons */}
       <Box sx={{ 
         display: 'flex', 
@@ -99,8 +99,8 @@ const SlideItem: React.FC<SlideItemProps> = ({
         {/* Slide thumbnail with avatar */}
         <Box sx={{ 
           position: 'relative', 
-          width: isExpanded ? 200 : 480,
-          height: isExpanded ? 112 : 270,
+          width: isExpanded ? 400 : 800,
+          height: isExpanded ? 225 : 450,
           flexShrink: 0, 
           borderRadius: 1, 
           overflow: 'hidden',
@@ -128,14 +128,24 @@ const SlideItem: React.FC<SlideItemProps> = ({
           )}
         </Box>
         
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="subtitle1">
-            {slide.title} (Index: {slide.index})
+        <Box sx={{ 
+          flexGrow: 0, 
+          minWidth: '100px',
+          marginLeft: -1
+        }}>
+          <Typography variant="subtitle2" noWrap>
+            {slide.title}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Index: {slide.index}
           </Typography>
         </Box>
         
-        {/* Control buttons */}
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          marginLeft: 'auto'
+        }}>
           <IconButton 
             size="small" 
             onClick={() => onToggleExpand(slide.id)}
