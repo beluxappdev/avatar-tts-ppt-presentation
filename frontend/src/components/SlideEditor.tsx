@@ -20,6 +20,7 @@ export const AVATAR_POSITIONS = [
 ] as const;
 
 // TODO
+// Preview slide generation
 // Comments on code
 // CONST URL
 // Global user state + Login
@@ -276,6 +277,18 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     return "";
   };
 
+  const handleBulkConfigure = (voice: string, size: string, position: string) => {
+    const newSlides = slides.map(slide => ({
+      ...slide,
+      voice,
+      avatarSize: size as typeof AVATAR_SIZES[number],
+      avatarPosition: position as typeof AVATAR_POSITIONS[number]
+    }));
+    
+    setSlides(newSlides);
+    addToHistory(newSlides, `Applied bulk configuration: ${voice} voice, ${size} size, ${position} position`);
+  };
+
   return (
     <Box sx={{ p: 2 }}>
       <SlideEditorHeader 
@@ -287,6 +300,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
         submitError={submitError}
         onToggleAllExpansion={toggleAllExpansion}
         onGenerateVideo={handleGenerateVideo}
+        onBulkConfigure={handleBulkConfigure}
       />
       
       {/* History Controls */}
