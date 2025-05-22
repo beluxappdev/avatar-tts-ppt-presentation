@@ -11,8 +11,7 @@ import {
 } from '@mui/material';
 import { ReactComponent as PowerPointLogo } from '../assets/powerpoint.svg';
 import axios from 'axios';
-
-const API_URL = 'http://localhost:8080/api/save_ppt';
+import { UPLOAD_PPT_URL } from '../utils/apiConfig';
 
 interface FileUploadProps {
   onFileUploaded?: (fileId: string) => void;
@@ -87,7 +86,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded = undefined }) =
       formData.append('file', file);
       formData.append('userId', 'tenant123');
 
-      const response = await axios.post(API_URL, formData, {
+      const response = await axios.post(UPLOAD_PPT_URL, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

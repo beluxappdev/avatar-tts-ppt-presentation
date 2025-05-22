@@ -7,6 +7,7 @@ import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import HistoryIcon from '@mui/icons-material/History';
+import { GENERATE_VIDEO_URL } from '../utils/apiConfig';
 
 export const VOICE_OPTIONS = ['None', 'Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
 export const AVATAR_SIZES = ['Small', 'Medium', 'Large'] as const;
@@ -244,7 +245,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
       console.log("Sending video generation request:", requestBody);
       
       const response = await axios.post(
-        'http://localhost:8080/api/generate_video',
+        GENERATE_VIDEO_URL,
         requestBody,
         {
           headers: {
