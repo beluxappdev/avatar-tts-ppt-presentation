@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [showSlideEditor, setShowSlideEditor] = useState(false);
   const [pptId, setPptId] = useState<string | null>(null);
   const [slidesData, setSlidesData] = useState<EditorSlide[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   
   const {
     processingSteps,
@@ -67,7 +68,12 @@ const App: React.FC = () => {
     setSlidesData([]);
   }, [resetStatus]);
 
-  // For the sidebar
+  const handleSelectPresentation = useCallback((id: string) => {
+    resetStatus();
+    setPptId(id);
+    setShowSlideEditor(true);
+  }, [resetStatus]);
+
   const handleNewPresentation = useCallback(() => {
     handleBackToUpload();
   }, [handleBackToUpload]);
@@ -78,7 +84,6 @@ const App: React.FC = () => {
     }
   }, [pptId, allProcessingComplete, slidesData.length, fetchSlides]);
 
-  // Recent presentations for the sidebar
   const recentPresentations = pptId ? 
     [{ id: pptId, name: `Presentation ${pptId.substring(0, 8)}` }] : 
     [];
@@ -86,29 +91,42 @@ const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Sidebar
-        username="User"
-        recentPresentations={recentPresentations}
-        onNewPresentation={handleNewPresentation}
-      />
-      
-      <Box sx={{ 
-        ml: { xs: '60px', sm: '280px' }, 
-        transition: 'margin-left 0.3s ease',
-        p: 3,
-        minHeight: '100vh'
-      }}>
-        {!showSlideEditor ? (
-          <FileUpload onFileUploaded={handleFileUploaded} />
-        ) : (
-          <PresentationView 
-            pptId={pptId}
-            processingSteps={processingSteps}
-            statusMessage={overallStatusMessage}
-            allProcessingComplete={allProcessingComplete}
-            slides={slidesData}
-          />
-        )}
+      <Box sx={{ display: 'flex' }}>
+        <Sidebar
+          username="User"
+          recentPresentations={recentPresentations}
+          onNewPresentation={handleNewPresentation}
+          onSelectPresentation={handleSelectPresentation}
+          onSidebarToggle={setSidebarOpen}
+        />
+        
+        <Box sx={{
+          flexGrow: 1,
+          marginLeft: sidebarOpen ? '280px' : '60px',
+          transition: 'margin-left 0.15s ease',
+          display: 'flex',
+          justifyContent: 'center',
+          minHeight: '100vh',
+        }}>
+          {/* Centered content container */}
+          <Box sx={{ 
+            maxWidth: '1200px', 
+            width: '100%', 
+            p: 3,
+          }}>
+            {!showSlideEditor ? (
+              <FileUpload onFileUploaded={handleFileUploaded} />
+            ) : (
+              <PresentationView 
+                pptId={pptId}
+                processingSteps={processingSteps}
+                statusMessage={overallStatusMessage}
+                allProcessingComplete={allProcessingComplete}
+                slides={slidesData}
+              />
+            )}
+          </Box>
+        </Box>
       </Box>
     </ThemeProvider>
   );

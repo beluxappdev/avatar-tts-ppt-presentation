@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, List, ListItemButton, ListItemText, Divider, IconButton } from '@mui/material';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
@@ -10,20 +10,34 @@ interface SidebarProps {
   recentPresentations?: Array<{ id: string; name: string }>;
   onNewPresentation: () => void;
   onSelectPresentation?: (id: string) => void;
+  onSidebarToggle?: (isOpen: boolean) => void;
+  initialOpen?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   username = 'Andras', 
   recentPresentations = [],
   onNewPresentation,
-  onSelectPresentation 
+  onSelectPresentation,
+  onSidebarToggle,
+  initialOpen = true
 }) => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(initialOpen);
   const [isHovering, setIsHovering] = useState(false);
 
   const toggleSidebar = () => {
-    setIsOpen(!isOpen);
+    const newState = !isOpen;
+    setIsOpen(newState);
+    if (onSidebarToggle) {
+      onSidebarToggle(newState);
+    }
   };
+
+  useEffect(() => {
+    if (onSidebarToggle) {
+      onSidebarToggle(isOpen);
+    }
+  }, []);
 
   const SidebarIcon = () => (
     <Box sx={{ 
