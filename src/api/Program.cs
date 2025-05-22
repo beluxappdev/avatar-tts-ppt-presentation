@@ -10,7 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure listening URLs explicitly
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.ListenAnyIP(80);
+    serverOptions.ListenAnyIP(8080);
 });
 
 // Add services to the container.

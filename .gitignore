@@ -3,6 +3,9 @@ bin/
 obj/
 out/
 
+# Node.js modules
+node_modules/
+
 # Visual Studio files
 .vs/
 .vscode/
@@ -77,3 +80,5 @@ Thumbs.db
 # PPT files
 *.ppt
 *.pptx
+
+issue.txt

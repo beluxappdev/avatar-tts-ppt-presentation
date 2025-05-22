@@ -101,8 +101,9 @@ namespace PptProcessingApi.Controllers
             }
         }
 
+        // 0d8e33cd-c8d3-4cc9-9d56-e0336e7a0f07 get images with thsi
         [HttpGet("ppt/{pptId}/slides")]
-        public async Task<IActionResult> GetPptSlides(string pptId, [FromQuery] string userId = "anonymous")
+        public async Task<IActionResult> GetPptSlides(string pptId, [FromQuery] string userId = "tenant123")
         {
             try
             {
