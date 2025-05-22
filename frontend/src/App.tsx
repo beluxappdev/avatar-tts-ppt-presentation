@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { CssBaseline, Container, ThemeProvider, createTheme, Box } from '@mui/material';
+import { CssBaseline, ThemeProvider, createTheme, Box } from '@mui/material';
 import FileUpload from './components/FileUpload';
 import { EditorSlide } from './components/SlideEditor';
-import AppHeader from './components/AppHeader';
+import Sidebar from './components/Sidebar';
 import PresentationView from './components/PresentationView';
 import { useSignalR } from './hooks/useSignalR';
 import { useProcessingStatus } from './hooks/useProcessingStatus';
@@ -13,6 +13,10 @@ const theme = createTheme({
   palette: {
     primary: { main: '#1976d2' },
     secondary: { main: '#dc004e' },
+    background: {
+      default: '#f5f5f5',
+      paper: '#ffffff'
+    }
   },
 });
 
@@ -63,35 +67,49 @@ const App: React.FC = () => {
     setSlidesData([]);
   }, [resetStatus]);
 
+  // For the sidebar
+  const handleNewPresentation = useCallback(() => {
+    handleBackToUpload();
+  }, [handleBackToUpload]);
+
   useEffect(() => {
     if (pptId && allProcessingComplete && slidesData.length === 0) {
       fetchSlides(pptId);
     }
   }, [pptId, allProcessingComplete, slidesData.length, fetchSlides]);
 
+  // Recent presentations for the sidebar
+  const recentPresentations = pptId ? 
+    [{ id: pptId, name: `Presentation ${pptId.substring(0, 8)}` }] : 
+    [];
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AppHeader 
-        showBackButton={showSlideEditor} 
-        onBackClick={handleBackToUpload} 
+      <Sidebar
+        username="User"
+        recentPresentations={recentPresentations}
+        onNewPresentation={handleNewPresentation}
       />
       
-      <Container>
-        <Box sx={{ my: 4 }}>
-          {!showSlideEditor ? (
-            <FileUpload onFileUploaded={handleFileUploaded} />
-          ) : (
-            <PresentationView 
-              pptId={pptId}
-              processingSteps={processingSteps}
-              statusMessage={overallStatusMessage}
-              allProcessingComplete={allProcessingComplete}
-              slides={slidesData}
-            />
-          )}
-        </Box>
-      </Container>
+      <Box sx={{ 
+        ml: { xs: '60px', sm: '280px' }, 
+        transition: 'margin-left 0.3s ease',
+        p: 3,
+        minHeight: '100vh'
+      }}>
+        {!showSlideEditor ? (
+          <FileUpload onFileUploaded={handleFileUploaded} />
+        ) : (
+          <PresentationView 
+            pptId={pptId}
+            processingSteps={processingSteps}
+            statusMessage={overallStatusMessage}
+            allProcessingComplete={allProcessingComplete}
+            slides={slidesData}
+          />
+        )}
+      </Box>
     </ThemeProvider>
   );
 };
