@@ -77,3 +77,15 @@ Thumbs.db
 # PPT files
 *.ppt
 *.pptx
+
+node_modules/
+*.sln
+next-steps.md
+*.http
+.azure/
+
+.venv/
+__pycache__/
+*.mp4
+*.webm
+*.png
