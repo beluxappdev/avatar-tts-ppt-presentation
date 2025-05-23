@@ -5,8 +5,6 @@ services:
     build:
       context: ./src/api/
       dockerfile: Dockerfile
-    ports:
-      - "8080:80"
     env_file:
       - .env
   image-extractor:
@@ -29,13 +27,15 @@ services:
       - EXTRACTOR_TYPE=script_extractor
     env_file:
       - .env
-  frontend:
+  video-generator:
     build:
-      context: ./frontend/
+      context: ./src/video-generator/
       dockerfile: Dockerfile
-    ports:
-      - "3000:80"
-    depends_on:
-      - api
-    environment:
-      - REACT_APP_API_URL=http://localhost:8080/api
+    env_file:
+      - .env
+  video-concatenator:
+    build:
+      context: ./src/video-concatenator/
+      dockerfile: Dockerfile
+    env_file:
+      - .env
