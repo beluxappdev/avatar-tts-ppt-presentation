@@ -20,6 +20,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
 
 // Register services
+builder.Services.AddSingleton<AzureCredentialService>();
 builder.Services.AddSingleton<BlobStorageService>();
 builder.Services.AddSingleton<CosmosDbService>();
 builder.Services.AddSingleton<ServiceBusService>();

@@ -26,36 +26,26 @@ namespace PptProcessingApi.Services
         private readonly string _accountName;
 
         public BlobStorageService(
-            IConfiguration configuration, 
+            IConfiguration configuration,
             ILogger<BlobStorageService> logger,
             SignalRService signalRService)
         {
             _logger = logger;
             _signalRService = signalRService;
             _configuration = configuration;
-            
+
             // Get configuration from appsettings or environment variables
-            var storageAccount = configuration["AzureServices:BlobStorage:Endpoint"]
-                        ?? throw new InvalidOperationException("Blob storage endpoint is missing in configuration.");
+            _accountName = configuration["AzureServices:BlobStorage:AccountName"]
+                        ?? throw new InvalidOperationException("Storage account name is missing in configuration.");
             _containerName = configuration["AzureServices:BlobStorage:Container"]
                             ?? throw new InvalidOperationException("Blob container name is missing in configuration.");
 
-            // For service principal authentication
-            var tenantId = configuration["AzureAd:TenantId"]
-                        ?? throw new InvalidOperationException("TenantId is missing in configuration.");
-            var clientId = configuration["AzureAd:ClientId"]
-                        ?? throw new InvalidOperationException("ClientId is missing in configuration.");
-            var clientSecret = configuration["AzureAd:ClientSecret"]
-                            ?? throw new InvalidOperationException("ClientSecret is missing in configuration.");
-
             // For storage account shared key authentication (needed for SAS generation)
-            _accountName = configuration["AzureServices:BlobStorage:AccountName"]
-                        ?? throw new InvalidOperationException("Storage account name is missing in configuration.");
             var accountKey = configuration["AzureServices:BlobStorage:AccountKey"]
                           ?? throw new InvalidOperationException("Storage account key is missing in configuration.");
 
             // Log configuration (mask sensitive data)
-            _logger.LogInformation("Configuring Azure Blob Storage: Account: {Account}, Container: {Container}", 
+            _logger.LogInformation("Configuring Azure Blob Storage: Account: {Account}, Container: {Container}",
                 _accountName, _containerName);
 
             // Create StorageSharedKeyCredential for SAS generation
@@ -73,12 +63,12 @@ namespace PptProcessingApi.Services
             {
                 // Send initial notification that upload is starting
                 await _signalRService.SendProcessingProgressAsync(
-                    pptId, 
-                    "BlobStorage", 
+                    pptId,
+                    "BlobStorage",
                     "Uploading");
-                
+
                 var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
-                
+
                 // Create the container if it doesn't exist
                 await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
 
@@ -87,7 +77,7 @@ namespace PptProcessingApi.Services
                 var blobClient = containerClient.GetBlobClient(blobName);
 
                 _logger.LogInformation("Uploading file to blob storage: {BlobName}", blobName);
-                
+
                 // Upload the file
                 await blobClient.UploadAsync(fileStream, new BlobHttpHeaders
                 {
@@ -95,24 +85,24 @@ namespace PptProcessingApi.Services
                 });
 
                 _logger.LogInformation("File uploaded successfully to {BlobUri}", blobClient.Uri);
-                
+
                 // Send success notification via SignalR
                 await _signalRService.SendProcessingProgressAsync(
-                    pptId, 
-                    "BlobStorage", 
+                    pptId,
+                    "BlobStorage",
                     "Completed");
-                
+
                 // Return the URL of the uploaded blob
                 return blobClient.Uri.ToString();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error uploading file to blob storage");
-                
+
                 // Send error notification via SignalR
                 await _signalRService.SendProcessingProgressAsync(
-                    pptId, 
-                    "BlobStorage", 
+                    pptId,
+                    "BlobStorage",
                     "Failed");
                 throw;
             }
@@ -125,19 +115,19 @@ namespace PptProcessingApi.Services
             // Create the list to hold slide information
             var slides = new List<SlideModel>();
             var scriptsBySlideNumber = new Dictionary<int, string>();
-    
+
             try
             {
                 // Get a reference to the container
                 BlobContainerClient containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
-        
+
                 // Generate SAS token for the blob container
                 string sasToken = CreateBlobPrefixSasToken(pptId);
                 _logger.LogInformation("Generated SAS token for container: {Container}", _containerName);
-    
+
                 // List blobs with the proper prefix to find all slides for this PPT
                 string prefix = $"{pptId}/slides/";
-    
+
                 // First pass: collect all script files
                 await foreach (var blobItem in containerClient.GetBlobsAsync(prefix: prefix))
                 {
@@ -150,10 +140,10 @@ namespace PptProcessingApi.Services
                         {
                             // Get the blob client for the script file
                             BlobClient scriptBlobClient = containerClient.GetBlobClient(blobItem.Name);
-                    
+
                             // Download the script content
                             BlobDownloadInfo download = await scriptBlobClient.DownloadAsync();
-                    
+
                             // Read the script content
                             using (var streamReader = new StreamReader(download.Content))
                             {
@@ -163,7 +153,7 @@ namespace PptProcessingApi.Services
                         }
                     }
                 }
-    
+
                 // Second pass: collect all image files and match with scripts
                 await foreach (var blobItem in containerClient.GetBlobsAsync(prefix: prefix))
                 {
@@ -176,36 +166,77 @@ namespace PptProcessingApi.Services
                         {
                             // Get a reference to the specific blob
                             BlobClient blobClient = containerClient.GetBlobClient(blobItem.Name);
-                    
+
                             // Create the URL with SAS token properly
                             string blobUrlWithSas = $"{blobClient.Uri}?{sasToken}";
-                    
+
                             // Create a SlideModel for this slide
                             var slide = new SlideModel
                             {
                                 Index = slideNumber,
                                 BlobUrl = blobUrlWithSas,
                                 // Add the script content if available
-                                Script = scriptsBySlideNumber.ContainsKey(slideNumber) 
-                                        ? scriptsBySlideNumber[slideNumber] 
+                                Script = scriptsBySlideNumber.ContainsKey(slideNumber)
+                                        ? scriptsBySlideNumber[slideNumber]
                                         : "null"
                             };
-                
+
                             slides.Add(slide);
                         }
                     }
                 }
-    
+
                 // Sort the slides by slide number
                 slides = slides.OrderBy(s => s.Index).ToList();
-    
+
                 _logger.LogInformation("Found {SlideCount} slides for PowerPoint: {PptId}", slides.Count, pptId);
-    
+
                 return (slides, sasToken);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving slides for PowerPoint: {PptId}", pptId);
+                throw;
+            }
+        }
+
+        public async Task<string> GetCompletedVideoAsync(string pptId)
+        {
+            _logger.LogInformation("Getting completed video for PowerPoint: {PptId}", pptId);
+
+            try
+            {
+                // Get a reference to the container
+                BlobContainerClient containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
+
+                // Path to the completed video file
+                string videoPath = $"{pptId}/completed_videos/video.mp4";
+        
+                // Get a reference to the specific video blob
+                BlobClient videoBlobClient = containerClient.GetBlobClient(videoPath);
+
+                // Check if the video file exists
+                if (await videoBlobClient.ExistsAsync())
+                {
+                    // Generate SAS token for the blob
+                    string sasToken = CreateBlobPrefixSasToken(videoPath);
+            
+                    // Create the URL with SAS token
+                    string videoUrlWithSas = $"{videoBlobClient.Uri}?{sasToken}";
+            
+                    _logger.LogInformation("Found completed video for PowerPoint: {PptId}", pptId);
+            
+                    return videoUrlWithSas;
+                }
+                else
+                {
+                    _logger.LogWarning("Completed video not found for PowerPoint: {PptId}", pptId);
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving completed video for PowerPoint: {PptId}", pptId);
                 throw;
             }
         }
@@ -221,17 +252,17 @@ namespace PptProcessingApi.Services
                 {
                     BlobContainerName = containerPptName.Name,
                     Resource = "c", // 'c' for container
-                    ExpiresOn = DateTimeOffset.UtcNow.AddHours(1)
+                    ExpiresOn = DateTimeOffset.UtcNow.AddHours(24)
                 };
-        
+
                 // Set the prefix to limit access to only the blobs with this pptId
                 sasBuilder.SetPermissions(BlobContainerSasPermissions.Read);
-        
+
                 // Generate only the SAS token without the URL
                 string sasToken = sasBuilder.ToSasQueryParameters(_storageSharedKeyCredential).ToString();
-        
+
                 _logger.LogInformation("Generated SAS token with prefix: {Prefix}", $"{pptId}/");
-        
+
                 return sasToken;
             }
             catch (Exception ex)
@@ -240,5 +271,6 @@ namespace PptProcessingApi.Services
                 throw;
             }
         }
+
     }
 }

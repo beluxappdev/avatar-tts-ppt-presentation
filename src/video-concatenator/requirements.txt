@@ -1,0 +1,4 @@
+azure-servicebus==7.14.2
+azure-storage-blob==12.25.1
+azure-identity==1.21.0
+azure-cosmos==4.9.0

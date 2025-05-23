@@ -23,7 +23,8 @@ namespace PptProcessingApi.Services
         public CosmosDbService(
             IConfiguration configuration, 
             ILogger<CosmosDbService> logger,
-            SignalRService signalRService)
+            SignalRService signalRService,
+            AzureCredentialService credentialService)
         {
             _logger = logger;
             _signalRService = signalRService;
@@ -36,17 +37,10 @@ namespace PptProcessingApi.Services
             var containerName = configuration["AzureServices:CosmosDb:Container"]
                         ?? throw new InvalidOperationException("Cosmos DB container name is missing in configuration.");
 
-            var tenantId = configuration["AzureAd:TenantId"]
-                        ?? throw new InvalidOperationException("TenantId is missing in configuration.");
-            var clientId = configuration["AzureAd:ClientId"]
-                        ?? throw new InvalidOperationException("ClientId is missing in configuration.");
-            var clientSecret = configuration["AzureAd:ClientSecret"]
-                            ?? throw new InvalidOperationException("ClientSecret is missing in configuration.");
-
             _logger.LogInformation("Configuring Azure Cosmos DB: Endpoint: {Endpoint}, Database: {Database}, Container: {Container}",
                 endpoint, _databaseName, containerName);
 
-            var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+            var credential = credentialService.GetTokenCredential();
 
             // Create CosmosClient
             _cosmosClient = new CosmosClient(endpoint, credential, new CosmosClientOptions
@@ -116,6 +110,13 @@ namespace PptProcessingApi.Services
                     await _signalRService.SendProcessingProgressAsync(entry.Id, "ScriptProcessing", entry.ScriptProcessingStatus);
                     _logger.LogInformation("Script processing status change notification sent for {Id}: {Status}", 
                         entry.Id, entry.ScriptProcessingStatus);
+                }
+                // Check if video processing status has changed
+                if (previousEntry == null || previousEntry.VideoProcessingStatus != entry.VideoProcessingStatus)
+                {
+                    await _signalRService.SendProcessingProgressAsync(entry.Id, "VideoProcessing", entry.VideoProcessingStatus);
+                    _logger.LogInformation("Video processing status change notification sent for {Id}: {Status}", 
+                        entry.Id, entry.VideoProcessingStatus);
                 }
                 
                 return response.Resource;
@@ -249,20 +250,26 @@ namespace PptProcessingApi.Services
                 foreach (var item in changes)
                 {
                     _logger.LogInformation("Change detected for document {Id} with status {Status}", item.Id, item.Status);
-                    
+
                     // Send overall status update via SignalR
                     await _signalRService.SendStatusUpdateAsync(item.Id, item.Status);
-                    
+
                     // If image processing status is not pending, send update
                     if (item.ImageProcessingStatus != "Pending")
                     {
                         await _signalRService.SendProcessingProgressAsync(item.Id, "ImageProcessing", item.ImageProcessingStatus);
                     }
-                    
+
                     // If script processing status is not pending, send update
                     if (item.ScriptProcessingStatus != "Pending")
                     {
                         await _signalRService.SendProcessingProgressAsync(item.Id, "ScriptProcessing", item.ScriptProcessingStatus);
+                    }
+
+                    // If video processing status is completed, send update
+                    if(item.VideoProcessingStatus != "NotReady")
+                    {
+                        await _signalRService.SendProcessingProgressAsync(item.Id, "VideoProcessing", item.VideoProcessingStatus);
                     }
                 }
             }

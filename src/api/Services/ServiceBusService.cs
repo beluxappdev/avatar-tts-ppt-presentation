@@ -4,17 +4,23 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
+using Newtonsoft.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using PptProcessingApi.Models;
 
 namespace PptProcessingApi.Services
 {
     public class ServiceBusService
     {
         private readonly ServiceBusSender _sender;
+        private readonly ServiceBusSender _videoQueueSender;
         private readonly ILogger<ServiceBusService> _logger;
 
-        public ServiceBusService(IConfiguration configuration, ILogger<ServiceBusService> logger)
+        public ServiceBusService(
+            IConfiguration configuration,
+            ILogger<ServiceBusService> logger,
+            AzureCredentialService credentialService)
         {
             _logger = logger;
 
@@ -24,19 +30,14 @@ namespace PptProcessingApi.Services
             var topicName = configuration["AzureServices:ServiceBus:Topic"]
                         ?? throw new InvalidOperationException("Service Bus topic name is missing in configuration.");
             
-            // Get Azure AD credentials
-            var tenantId = configuration["AzureAd:TenantId"]
-                        ?? throw new InvalidOperationException("TenantId is missing in configuration.");
-            var clientId = configuration["AzureAd:ClientId"]
-                        ?? throw new InvalidOperationException("ClientId is missing in configuration.");
-            var clientSecret = configuration["AzureAd:ClientSecret"]
-                            ?? throw new InvalidOperationException("ClientSecret is missing in configuration.");
+            var videoQueueName = configuration["AzureServices:ServiceBus:Queue:VideoGenerator"]
+                        ?? throw new InvalidOperationException("Service Bus video queue name is missing in configuration.");
 
-            _logger.LogInformation("Configuring Azure Service Bus: Namespace: {Namespace}, Topic: {Topic}",
-                serviceBusNamespace, topicName);
+            _logger.LogInformation("Configuring Azure Service Bus: Namespace: {Namespace}, Topic: {Topic}, Queue: {Queue}",
+                serviceBusNamespace, topicName, videoQueueName);
 
             // Create credentials and client
-            var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+            var credential = credentialService.GetTokenCredential();
             var fullyQualifiedNamespace = $"{serviceBusNamespace}.servicebus.windows.net";
 
             var clientOptions = new ServiceBusClientOptions
@@ -46,6 +47,7 @@ namespace PptProcessingApi.Services
             
             var client = new ServiceBusClient(fullyQualifiedNamespace, credential, clientOptions);
             _sender = client.CreateSender(topicName);
+            _videoQueueSender = client.CreateSender(videoQueueName);
             
             _logger.LogInformation("Service Bus sender created successfully");
         }
@@ -54,7 +56,7 @@ namespace PptProcessingApi.Services
         {
             try
             {
-                var jsonMessage = JsonSerializer.Serialize(messageBody);
+                var jsonMessage = System.Text.Json.JsonSerializer.Serialize(messageBody);
                 var message = new ServiceBusMessage(Encoding.UTF8.GetBytes(jsonMessage))
                 {
                     ContentType = "application/json",
@@ -110,7 +112,7 @@ namespace PptProcessingApi.Services
         /// </summary>
         public ServiceBusMessage CreateMessage(object messageBody, string messageId, string? sessionId = null)
         {
-            var jsonMessage = JsonSerializer.Serialize(messageBody);
+            var jsonMessage = System.Text.Json.JsonSerializer.Serialize(messageBody);
             return new ServiceBusMessage(Encoding.UTF8.GetBytes(jsonMessage))
             {
                 ContentType = "application/json",
@@ -182,6 +184,39 @@ namespace PptProcessingApi.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending messages in batches");
+                throw;
+            }
+        }
+
+        public async Task SendSlideVideoMessageAsync(SlideVideoGenerationMessage message)
+        {
+            try
+            {
+                // Serialize the message to JSON
+                var messageBody = JsonConvert.SerializeObject(message, Formatting.Indented);
+                var serviceBusMessage = new ServiceBusMessage(Encoding.UTF8.GetBytes(messageBody))
+                {
+                    MessageId = Guid.NewGuid().ToString(),
+                    ContentType = "application/json"
+                };
+
+                // Add custom properties for easier message routing and filtering
+                serviceBusMessage.ApplicationProperties.Add("JobId", message.JobId);
+                serviceBusMessage.ApplicationProperties.Add("PptId", message.PptId);
+                serviceBusMessage.ApplicationProperties.Add("SlideNumber", message.SlideNumber);
+                serviceBusMessage.ApplicationProperties.Add("UserId", message.UserId);
+                serviceBusMessage.ApplicationProperties.Add("MessageType", "SlideVideoGeneration");
+
+                // Send the message
+                await _videoQueueSender.SendMessageAsync(serviceBusMessage);
+
+                _logger.LogInformation("Successfully sent video generation message for slide {SlideNumber}, pptId: {PptId}, jobId: {JobId}",
+                    message.SlideNumber, message.PptId, message.JobId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending video generation message for slide {SlideNumber}, pptId: {PptId}, jobId: {JobId}",
+                    message.SlideNumber, message.PptId, message.JobId);
                 throw;
             }
         }
