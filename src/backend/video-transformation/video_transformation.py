@@ -3,13 +3,12 @@ import os
 import aiohttp # type: ignore
 from typing import Dict, Any
 from azure.identity.aio import DefaultAzureCredential # type: ignore
-from azure.servicebus import ServiceBusReceivedMessage # type: ignore
 
 from common.services.base_service import BaseService
 from common.services.cosmos_db import CosmosDBService
 from common.services.blob_storage import BlobStorageService
 from common.models.powerpoint import StatusEnum
-from common.models.messages import VideoTransformationMessage
+from common.models.messages import VideoTransformationMessage, VideoConcatenationMessage
 from common.models.service_config import ServiceBusConfig
 from common.utils.config import Settings
 
@@ -43,6 +42,8 @@ class VideoTransformation(BaseService):
         try:
             # Create VideoTransformation object
             video_message = VideoTransformationMessage(**message_data)
+
+
         
             # Update Cosmos DB status to In Progress
             self.logger.info(f"Updating video generation status for PPT {video_message.ppt_id}, slide {video_message.index} to In Progress")
@@ -109,8 +110,8 @@ class VideoTransformation(BaseService):
             self.logger.info(f"Updating video generation status for PPT {video_message.ppt_id}, slide {video_message.index} to Completed")
             await self._update_status(video_message, StatusEnum.COMPLETED)
 
-            # Send concatenation message if needed
-            await self.send_concatenation_message(video_message)
+            # Update completed slides count and check if all videos are ready for concatenation
+            await self._update_completed_slides(video_message)
 
         except Exception as e:
             self.logger.error(f"Error processing video transformation: {str(e)}")
@@ -160,27 +161,75 @@ class VideoTransformation(BaseService):
                 status_type='status',
                 new_status=status,
             )
+
+    async def _update_completed_slides(self, video_message: VideoTransformationMessage) -> None:
+        """Update completed slides count and check if all videos are ready for concatenation using ETag"""
+        max_retries = 5
+        retry_count = 0
+        while retry_count < max_retries:
+            try:
+                # Get the PowerPoint record with ETag
+                powerpoint_record, etag = await self.cosmos_db.get_powerpoint_record(
+                    video_message.ppt_id, 
+                    video_message.user_id
+                )
+            
+                if not powerpoint_record:
+                    self.logger.error(f"PowerPoint record not found: {video_message.ppt_id}")
+                    return
+            
+                # Find the video information
+                video_info = None
+                for vi in powerpoint_record.video_information:
+                    if vi.video_id == video_message.video_id:
+                        video_info = vi
+                        break
+            
+                if not video_info:
+                    self.logger.error(f"Video information not found for video_id: {video_message.video_id}")
+                    return
+            
+                # Check if all slides for this video are completed (both generation and transformation)
+                video_info.completed_slides += 1
+            
+                self.logger.info(f"Updating completed slides for video {video_message.video_id}: {video_info.completed_slides}/{video_info.total_slides}")
+                await self.cosmos_db.update_powerpoint_record(powerpoint_record, etag)
+
+                # Only update if the completed slides count has actually changed
+                if video_info.completed_slides == video_info.total_slides:
+
+                    self.logger.debug(f"Completed slides for video {video_message.video_id}: {video_info.completed_slides}/{video_info.total_slides}")
+                    # Update the video status to COMPLETED
+
+                    await self.send_concatenation_message(video_message)
+                    return
+                return
+                
+            except Exception as e:
+                if "access condition" in str(e).lower() or "412" in str(e):
+                    # Concurrency conflict - another process updated the document
+                    retry_count += 1
+                    self.logger.warning(f"Concurrency conflict on attempt {retry_count}, retrying...")
+                    continue  # Retry the operation
+                self.logger.error(f"Error updating completed slides and checking concatenation: {str(e)}")
+                raise
     
     
     async def send_concatenation_message(self, original_message: VideoTransformationMessage) -> None:
         """Send message to video transformation queue"""
         try:
-            concatenation_message = {
-                'ppt_id': original_message.ppt_id,
-                'user_id': original_message.user_id,
-                'video_id': original_message.video_id,
-                'index': original_message.index,
-                'show_avatar': original_message.show_avatar,
-                'avatar_persona': original_message.avatar_persona,
-                'avatar_position': original_message.avatar_position,
-                'avatar_size': original_message.avatar_size,
-                'timestamp': original_message.timestamp.isoformat() if original_message.timestamp else None
-            }
+
+            concatenation_message = VideoConcatenationMessage(
+                ppt_id=original_message.ppt_id,
+                user_id=original_message.user_id,
+                video_id=original_message.video_id,
+                timestamp=original_message.timestamp
+            )
             
             await self.service_bus.send_message(
                 destination_type="queue",
                 destination_name=self.settings.service_bus_video_concatenation_queue_name,
-                message_data=concatenation_message
+                message_data=concatenation_message.model_dump()
             )
             
             self.logger.info(f"Sent concatenation message for PPT {original_message.ppt_id}, slide {original_message.index}")

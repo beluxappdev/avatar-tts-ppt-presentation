@@ -47,3 +47,14 @@ class VideoTransformationMessage(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat() if v else None
         }
+
+class VideoConcatenationMessage(BaseModel):
+    ppt_id: str
+    user_id: str
+    video_id: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }

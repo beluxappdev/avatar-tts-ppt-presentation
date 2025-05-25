@@ -201,7 +201,7 @@ async def generate_video_powerpoint(
 
         # Get powerpoint record from Cosmos DB
         logger.info(f"Retrieving PowerPoint record from Cosmos DB: {ppt_id}")
-        powerpoint_record = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
+        powerpoint_record, etag = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
         powerpoint_record.video_information.append(new_video_info)
 
         # Update the powerpoint with the new video information
@@ -274,7 +274,7 @@ async def get_processing_status(request: Request, ppt_id: str, user_id: str) -> 
         cosmos_service = request.app.state.cosmos_service
         
         # Get PowerPoint record from Cosmos DB
-        powerpoint_record = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
+        powerpoint_record, etag = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
         
         if not powerpoint_record:
             raise HTTPException(status_code=404, detail="PowerPoint not found")
@@ -309,7 +309,7 @@ async def get_powerpoint_details(request: Request, ppt_id: str, user_id: str) ->
         cosmos_service = request.app.state.cosmos_service
         
         # Get PowerPoint record from Cosmos DB
-        powerpoint_record = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
+        powerpoint_record, etag = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
         
         if not powerpoint_record:
             raise HTTPException(status_code=404, detail="PowerPoint not found")

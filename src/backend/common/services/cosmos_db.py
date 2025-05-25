@@ -70,7 +70,8 @@ class CosmosDBService:
             container = await self._get_container()
             
             item = await container.read_item(item=ppt_id, partition_key=user_id)
-            return PowerPointModel(**item)
+            etag = item["_etag"]
+            return PowerPointModel(**item), etag
             
         except AzureError as e:
             if e.status_code == 404:
@@ -82,7 +83,7 @@ class CosmosDBService:
             logger.error(f"Unexpected error retrieving PowerPoint record: {e}")
             raise
     
-    async def update_powerpoint_record(self, powerpoint: PowerPointModel) -> PowerPointModel:
+    async def update_powerpoint_record(self, powerpoint: PowerPointModel, etag: str = None) -> PowerPointModel:
         """ Update an existing PowerPoint record in Cosmos DB
 
         Args:
@@ -98,10 +99,17 @@ class CosmosDBService:
             item_dict = powerpoint.model_dump(mode='json', by_alias=True)
             
             # Update the item
-            updated_item = await container.replace_item(
-                item=powerpoint.id, 
-                body=item_dict
-            )
+            if etag:
+                updated_item = await container.replace_item(
+                    item=powerpoint.id, 
+                    body=item_dict,
+                    request_options={"if_match": etag}
+                )
+            else:
+                updated_item = await container.replace_item(
+                    item=powerpoint.id, 
+                    body=item_dict
+                )
             
             logger.info(f"PowerPoint record updated with ID: {powerpoint.id}")
             return PowerPointModel(**updated_item)
@@ -112,6 +120,74 @@ class CosmosDBService:
         except Exception as e:
             logger.error(f"Unexpected error updating PowerPoint record: {e}")
             raise
+
+    async def update_video_status(self, ppt_id: str, user_id: str, video_id: str, 
+                                    status_type: str, new_status: StatusEnum, error_message: Optional[str] = None) -> bool:
+            """Update slide video status in PowerPoint record
+    
+            Args:
+                ppt_id: PowerPoint ID
+                user_id: User ID (partition key)
+                video_id: Video ID
+                slide_index: Slide index
+                status_type: Type of status to update ('status', 'generation_status', 'transformation_status')
+                new_status: New status value (StatusEnum)
+                error_message: Error message if status is 'Failed'
+        
+            Returns:
+                True if update was successful, False otherwise
+            """
+            try:
+                # Get the PowerPoint record
+                powerpoint_record, etag = await self.get_powerpoint_record(ppt_id, user_id)
+        
+                if not powerpoint_record:
+                    logger.error(f"PowerPoint record not found: {ppt_id}")
+                    return False
+        
+                # Find the video information
+                video_info = None
+                for vi in powerpoint_record.video_information:
+                    if vi.video_id == video_id:
+                        video_info = vi
+                        break
+        
+                if not video_info:
+                    logger.error(f"Video information not found for video_id: {video_id}")
+                    return False
+        
+                # Get the status object to update
+                if status_type == "status":
+                    status_obj = video_info.status
+                elif status_type == "generation_status":
+                    status_obj = video_info.generation_status
+                elif status_type == "transformation_status":
+                    status_obj = video_info.transformation_status
+                else:
+                    logger.error(f"Invalid status_type: {status_type}")
+                    return False
+        
+                # Update status and timestamps
+                status_obj.status = new_status
+        
+                if new_status == StatusEnum.PROCESSING:
+                    status_obj.processed_at = datetime.utcnow()
+                elif new_status == StatusEnum.COMPLETED:
+                    status_obj.completed_at = datetime.utcnow()
+                elif new_status == StatusEnum.FAILED:
+                    status_obj.failed_at = datetime.utcnow()
+                    if error_message:
+                        status_obj.error_message = error_message
+        
+                # Update the record in Cosmos DB
+                await self.update_powerpoint_record(powerpoint_record)
+        
+                logger.info(f"Updated {status_type} to {new_status} for PPT {ppt_id}, video {video_id}")
+                return True
+        
+            except Exception as e:
+                logger.error(f"Error updating slide video status: {str(e)}")
+                return False
 
     async def update_slide_video_status(self, ppt_id: str, user_id: str, video_id: str, slide_index: str, 
                                 status_type: str, new_status: StatusEnum, error_message: Optional[str] = None) -> bool:
@@ -131,7 +207,7 @@ class CosmosDBService:
         """
         try:
             # Get the PowerPoint record
-            powerpoint_record = await self.get_powerpoint_record(ppt_id, user_id)
+            powerpoint_record, etag = await self.get_powerpoint_record(ppt_id, user_id)
         
             if not powerpoint_record:
                 logger.error(f"PowerPoint record not found: {ppt_id}")

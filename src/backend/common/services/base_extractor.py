@@ -94,7 +94,7 @@ class BaseExtractorService(BaseService):
         """Update the extraction status in Cosmos DB"""
         try:
             # Get existing record or create new one
-            powerpoint = await self.cosmos_service.get_powerpoint_record(ppt_id, user_id)
+            powerpoint, etag = await self.cosmos_service.get_powerpoint_record(ppt_id, user_id)
             
             if not powerpoint:
                 # Create new record
@@ -134,7 +134,7 @@ class BaseExtractorService(BaseService):
         """Update PowerPoint record with slide information"""
         try:
             # Get existing record
-            powerpoint = await self.cosmos_service.get_powerpoint_record(ppt_id, user_id)
+            powerpoint, etag = await self.cosmos_service.get_powerpoint_record(ppt_id, user_id)
             
             if not powerpoint:
                 raise CosmosDBError(f"PowerPoint record not found: {ppt_id}")

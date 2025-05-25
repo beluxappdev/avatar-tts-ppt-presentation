@@ -207,12 +207,18 @@ class ServiceBusService:
                     await receiver.renew_message_lock(message)
                     logger.info(f"Message lock renewed successfully")
                 except Exception as e:
-                    logger.warning(f"Failed to renew message lock: {e}")
-                    # Don't break the loop, just log and continue trying
+                    error_message = str(e).lower()
+                    # Stop trying to renew if message has been settled or deleted
+                    if "deleted" in error_message or "settled" in error_message:
+                        logger.info(f"Message has been settled or deleted, stopping lock renewal: {e}")
+                        break
+                    else:
+                        logger.warning(f"Failed to renew message lock: {e}")
+                        # Continue trying for other types of errors
         except asyncio.CancelledError:
             logger.info("Lock renewal task cancelled")
             pass
-    
+
     def stop_listening(self):
         """Stop listening for messages"""
         self._is_listening = False
