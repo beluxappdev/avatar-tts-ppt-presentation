@@ -33,6 +33,12 @@ services:
       dockerfile: ./video-transformation/Dockerfile
     env_file:
       - .env.local
+  video-concatenator:
+    build:
+      context: ./src/backend
+      dockerfile: ./video-concatenator/Dockerfile
+    env_file:
+      - .env.local
   # frontend:
   #   build:
   #     context: ./frontend/
