@@ -1,6 +1,8 @@
 from azure.storage.blob.aio import BlobServiceClient # type: ignore
+from azure.storage.blob import generate_blob_sas, BlobSasPermissions # type: ignore
 from azure.identity.aio import DefaultAzureCredential # type: ignore
 from azure.core.exceptions import AzureError # type: ignore
+from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -109,6 +111,80 @@ class BlobStorageService:
         except Exception as e:
             logger.error(f"Unexpected error checking file existence in blob storage: {e}")
             raise
+
+    async def get_blob_url_with_sas(self, container_name: str, blob_name: str, expiry_hours: int = 24) -> str:
+        """ Generate a blob URL with SAS token for secure access
+
+        Args:
+            container_name (str): The name of the container in blob storage.
+            blob_name (str): The name of the blob (file) to generate SAS URL for.
+            expiry_hours (int): Hours from now when the SAS token expires (default: 24).
+
+        Returns:
+            str: The blob URL with SAS token for secure access.
+        """
+        try:
+            client = await self._get_client()
+            blob_client = client.get_blob_client(
+                container=container_name, 
+                blob=blob_name
+            )
+        
+            # Calculate expiry time
+            start_time = datetime.utcnow()
+            expiry_time = start_time + timedelta(hours=expiry_hours)
+        
+            try:
+                # Try to get user delegation key for managed identity/service principal auth
+                user_delegation_key = await client.get_user_delegation_key(
+                    key_start_time=start_time,
+                    key_expiry_time=expiry_time
+                )
+            
+                # Generate SAS token with user delegation key
+                sas_token = generate_blob_sas(
+                    account_name=client.account_name,
+                    container_name=container_name,
+                    blob_name=blob_name,
+                    user_delegation_key=user_delegation_key,
+                    permission=BlobSasPermissions(read=True),
+                    expiry=expiry_time,
+                    start=start_time
+                )
+            
+                logger.info(f"Generated SAS URL with user delegation key for blob: {blob_name}")
+            
+            except Exception as delegation_error:
+                logger.warning(f"Could not get user delegation key: {delegation_error}")
+                # Fallback: try with account key (if available)
+                if hasattr(client.credential, 'account_key') and client.credential.account_key:
+                    sas_token = generate_blob_sas(
+                        account_name=client.account_name,
+                        container_name=container_name,
+                        blob_name=blob_name,
+                        account_key=client.credential.account_key,
+                        permission=BlobSasPermissions(read=True),
+                        expiry=expiry_time,
+                        start=start_time
+                    )
+                    logger.info(f"Generated SAS URL with account key for blob: {blob_name}")
+                else:
+                    # If neither method works, return the blob URL without SAS
+                    logger.warning(f"Cannot generate SAS token, returning blob URL without SAS for: {blob_name}")
+                    return blob_client.url
+        
+            # Construct URL with SAS token
+            blob_url_with_sas = f"{blob_client.url}?{sas_token}"
+            return blob_url_with_sas
+        
+        except AzureError as e:
+            logger.error(f"Azure error generating SAS URL for blob: {e}")
+            # Return the blob URL without SAS as fallback
+            return blob_client.url
+        except Exception as e:
+            logger.error(f"Unexpected error generating SAS URL for blob: {e}")
+            # Return the blob URL without SAS as fallback
+            return blob_client.url
     
     async def close(self):
         """Close the blob service client"""

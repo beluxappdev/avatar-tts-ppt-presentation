@@ -1,3 +1,4 @@
+# api/main.py
 import uvicorn  # type: ignore
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -13,6 +14,8 @@ from common.utils.logging import setup_logging
 
 # Import routers
 from api.routes import powerpoint
+from api.routes import websocket
+from api.websocket.manager import PowerPointProgressManager
 
 # Initialize settings
 settings = Settings()
@@ -24,6 +27,7 @@ logger = setup_logging("api")
 blob_service = None
 service_bus_service = None
 cosmos_service = None
+progress_manager = None
 
 
 @asynccontextmanager
@@ -32,7 +36,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up PowerPoint Processing API...")
     
-    global blob_service, service_bus_service, cosmos_service
+    global blob_service, service_bus_service, cosmos_service, progress_manager
     
     # Initialize services
     blob_service = BlobStorageService(settings.storage_account_url)
@@ -43,11 +47,18 @@ async def lifespan(app: FastAPI):
         settings.cosmos_db_container_name
     )
     
+    # Initialize WebSocket progress manager
+    progress_manager = PowerPointProgressManager(cosmos_service)
+    
     # Set services in app state for access in routes
     app.state.blob_service = blob_service
     app.state.service_bus_service = service_bus_service
     app.state.cosmos_service = cosmos_service
     app.state.settings = settings
+    app.state.progress_manager = progress_manager
+    
+    # Make progress manager available to websocket routes
+    websocket.progress_manager = progress_manager
     
     logger.info("Services initialized successfully")
     
@@ -57,6 +68,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down PowerPoint Processing API...")
     
     try:
+        # Close WebSocket manager first
+        if progress_manager:
+            await progress_manager.close()
+            
         if service_bus_service:
             await service_bus_service.close()
         if cosmos_service:
@@ -87,6 +102,7 @@ app.add_middleware(
 
 # Include routers with /api prefix
 app.include_router(powerpoint.router, prefix="/api", tags=["PowerPoint"])
+app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
 
 @app.get("/health")
 async def health_check():

@@ -1,5 +1,7 @@
 import uuid
 import os
+import io
+from pptx import Presentation
 from datetime import datetime
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Request # type: ignore
 import logging
@@ -92,6 +94,9 @@ async def upload_powerpoint(
             blob_name=blob_name,
             file_data=file_data
         )
+
+        # Retrieve the number of slides from the PowerPoint file
+        slide_count = get_slide_count_from_pptx(file_data)
         
         # Create PowerPoint model for Cosmos DB
         powerpoint_model = PowerPointModel(
@@ -102,7 +107,8 @@ async def upload_powerpoint(
             blob_storage_status=StatusInformation(
                 status="Completed",
                 completed_at=datetime.utcnow()
-            )
+            ),
+            number_of_slides=slide_count
         )
         
         # Save to Cosmos DB
@@ -147,6 +153,117 @@ async def upload_powerpoint(
         
     except Exception as e:
         logger.error(f"Unexpected error during PowerPoint upload: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/powerpoint/{ppt_id}/slides/user/{user_id}")
+async def get_powerpoint_slides(
+    ppt_id: str,
+    user_id: str,
+    request: Request
+) -> dict:
+    """
+    Fetch PowerPoint slides (images and scripts) from blob storage
+    
+    Args:
+        ppt_id: PowerPoint ID to fetch slides for
+        request: FastAPI request object to access app state
+        
+    Returns:
+        JSON response with slides data including image URLs with SAS tokens and scripts
+    """
+    try:
+        logger.info(f"Fetching slides for PowerPoint: {ppt_id}")
+        
+        # Get services from app state
+        blob_service = request.app.state.blob_service
+        cosmos_service = request.app.state.cosmos_service
+        settings = request.app.state.settings
+        
+        # Verify PowerPoint exists in Cosmos DB
+        try:
+            powerpoint_record,_ = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
+            if not powerpoint_record:
+                raise PowerPointNotFoundError(f"PowerPoint with ID {ppt_id} not found")
+        except Exception as e:
+            logger.error(f"Error fetching PowerPoint record: {e}")
+            raise PowerPointNotFoundError(f"PowerPoint with ID {ppt_id} not found")
+
+        logger.info(f"Powerpoint details: {powerpoint_record}")
+        
+        # Get number of slides from the record, or attempt to discover them
+        number_of_slides = powerpoint_record.number_of_slides
+        
+        slides = []
+        
+        # If we don't know the number of slides, we'll try to discover them
+        if number_of_slides == 0:
+            logger.info(f"Number of slides unknown, discovering slides for PPT: {ppt_id}")
+            # Try to find slides by checking for their existence (up to a reasonable limit)
+            for i in range(100):  # Maximum 100 slides to check
+                image_blob_name = f"{ppt_id}/images/{i}.png"
+                if await blob_service.file_exists(settings.blob_container_name, image_blob_name):
+                    number_of_slides = i + 1
+                else:
+                    break
+        
+        logger.info(f"Processing {number_of_slides} slides for PPT: {ppt_id}")
+        
+        # Fetch each slide's image and script
+        for i in range(number_of_slides):
+            slide_data = {
+                "index": i,
+                "blobUrl": None,
+                "script": ""
+            }
+            
+            # Get image URL with SAS token
+            image_blob_name = f"{ppt_id}/images/{i}.png"
+            try:
+                if await blob_service.file_exists(settings.blob_container_name, image_blob_name):
+                    image_url_with_sas = await blob_service.get_blob_url_with_sas(
+                        container_name=settings.blob_container_name,
+                        blob_name=image_blob_name,
+                        expiry_hours=24  # SAS token valid for 24 hours
+                    )
+                    slide_data["blobUrl"] = image_url_with_sas
+                    logger.debug(f"Generated SAS URL for image {i}")
+                else:
+                    logger.warning(f"Image not found for slide {i}: {image_blob_name}")
+            except Exception as e:
+                logger.error(f"Error getting image URL for slide {i}: {e}")
+            
+            # Get script content
+            script_blob_name = f"{ppt_id}/scripts/{i}.txt"
+            try:
+                if await blob_service.file_exists(settings.blob_container_name, script_blob_name):
+                    script_data = await blob_service.download_file(
+                        container_name=settings.blob_container_name,
+                        blob_name=script_blob_name
+                    )
+                    slide_data["script"] = script_data.decode('utf-8').strip()
+                    logger.debug(f"Downloaded script for slide {i}")
+                else:
+                    logger.warning(f"Script not found for slide {i}: {script_blob_name}")
+            except Exception as e:
+                logger.error(f"Error downloading script for slide {i}: {e}")
+            
+            slides.append(slide_data)
+        
+        logger.info(f"Successfully fetched {len(slides)} slides for PPT: {ppt_id}")
+        
+        return {
+            "ppt_id": ppt_id,
+            "total_slides": len(slides),
+            "slides": slides,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except PowerPointNotFoundError as e:
+        logger.error(f"PowerPoint not found: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+        
+    except Exception as e:
+        logger.error(f"Unexpected error fetching slides for PPT {ppt_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/powerpoint/generate_video")
@@ -384,3 +501,33 @@ async def delete_powerpoint(request: Request, ppt_id: str, user_id: str) -> dict
     except Exception as e:
         logger.error(f"Error deleting PowerPoint: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+def get_slide_count_from_pptx(file_data: bytes) -> int:
+    """
+    Extract the number of slides from PowerPoint file data
+    
+    Args:
+        file_data (bytes): The PowerPoint file data
+        
+    Returns:
+        int: Number of slides in the presentation
+        
+    Raises:
+        PPTProcessingError: If unable to read the PowerPoint file
+    """
+    try:
+        # Create a BytesIO object from the file data
+        ppt_stream = io.BytesIO(file_data)
+        
+        # Load the presentation
+        presentation = Presentation(ppt_stream)
+        
+        # Get the number of slides
+        slide_count = len(presentation.slides)
+        
+        logger.info(f"PowerPoint contains {slide_count} slides")
+        return slide_count
+        
+    except Exception as e:
+        logger.error(f"Error reading PowerPoint file to get slide count: {e}")
+        raise PPTProcessingError(f"Unable to read PowerPoint file: {str(e)}")

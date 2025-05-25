@@ -1,7 +1,7 @@
 services:
   api:
     build:
-      context: ./src/backend
+      context: ./src/backend/
       dockerfile: ./api/Dockerfile
     ports:
       - "8000:8000"
@@ -9,18 +9,18 @@ services:
       - DEBUG=true
     env_file:
       - .env.local
-  # image-extractor:
-  #   build:
-  #     context: ./src/backend
-  #     dockerfile: ./image-extractor/Dockerfile
-  #   env_file:
-  #     - .env.local
-  # script-extractor:
-  #   build:
-  #     context: ./src/backend
-  #     dockerfile: ./script-extractor/Dockerfile
-  #   env_file:
-  #     - .env.local
+  image-extractor:
+    build:
+      context: ./src/backend
+      dockerfile: ./image-extractor/Dockerfile
+    env_file:
+      - .env.local
+  script-extractor:
+    build:
+      context: ./src/backend
+      dockerfile: ./script-extractor/Dockerfile
+    env_file:
+      - .env.local
   video-generator:
     build:
       context: ./src/backend
@@ -39,13 +39,13 @@ services:
       dockerfile: ./video-concatenator/Dockerfile
     env_file:
       - .env.local
-  # frontend:
-  #   build:
-  #     context: ./frontend/
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "3000:80"
-  #   depends_on:
-  #     - api
-  #   environment:
-  #     - REACT_APP_API_URL=http://localhost:8080/api
+  frontend:
+    build:
+      context: ./src/frontend/
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
