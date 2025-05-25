@@ -1,41 +1,45 @@
-
-version: '3.8'
 services:
   api:
     build:
-      context: ./src/api/
-      dockerfile: Dockerfile
+      context: ./src/backend
+      dockerfile: ./api/Dockerfile
     ports:
-      - "8080:80"
-    env_file:
-      - .env
-  image-extractor:
-    build:
-      context: ./src/extractors/
-      dockerfile: Dockerfile
-      args:
-        - EXTRACTOR_TYPE=image_extractor
+      - "8000:8000"
     environment:
-      - EXTRACTOR_TYPE=image_extractor
+      - DEBUG=true
     env_file:
-      - .env
-  script-extractor:
+      - .env.local
+  # image-extractor:
+  #   build:
+  #     context: ./src/backend
+  #     dockerfile: ./image-extractor/Dockerfile
+  #   env_file:
+  #     - .env.local
+  # script-extractor:
+  #   build:
+  #     context: ./src/backend
+  #     dockerfile: ./script-extractor/Dockerfile
+  #   env_file:
+  #     - .env.local
+  video-generator:
     build:
-      context: ./src/extractors/
-      dockerfile: Dockerfile
-      args:
-        - EXTRACTOR_TYPE=script_extractor
-    environment:
-      - EXTRACTOR_TYPE=script_extractor
+      context: ./src/backend
+      dockerfile: ./video-generator/Dockerfile
     env_file:
-      - .env
-  frontend:
+      - .env.local
+  video-transformation:
     build:
-      context: ./frontend/
-      dockerfile: Dockerfile
-    ports:
-      - "3000:80"
-    depends_on:
-      - api
-    environment:
-      - REACT_APP_API_URL=http://localhost:8080/api
+      context: ./src/backend
+      dockerfile: ./video-transformation/Dockerfile
+    env_file:
+      - .env.local
+  # frontend:
+  #   build:
+  #     context: ./frontend/
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3000:80"
+  #   depends_on:
+  #     - api
+  #   environment:
+  #     - REACT_APP_API_URL=http://localhost:8080/api

@@ -10,7 +10,7 @@ from azure.servicebus import ServiceBusReceivedMessage # type: ignore
 from common.services.base_service import BaseService
 from common.services.cosmos_db import CosmosDBService
 from common.models.powerpoint import StatusEnum
-from common.models.messages import VideoGenerationMessage
+from common.models.messages import VideoGenerationMessage, VideoTransformationMessage
 from common.models.service_config import ServiceBusConfig
 from common.utils.config import Settings
 
@@ -300,23 +300,23 @@ class VideoGeneratorService(BaseService):
     async def send_transformation_message(self, original_message: VideoGenerationMessage, video_url: str) -> None:
         """Send message to video transformation queue"""
         try:
-            transformation_message = {
-                'ppt_id': original_message.ppt_id,
-                'user_id': original_message.user_id,
-                'video_id': original_message.video_id,
-                'index': original_message.index,
-                'avatar_video_url': video_url,
-                'show_avatar': original_message.show_avatar,
-                'avatar_persona': original_message.avatar_persona,
-                'avatar_position': original_message.avatar_position,
-                'avatar_size': original_message.avatar_size,
-                'timestamp': original_message.timestamp.isoformat() if original_message.timestamp else None
-            }
+            transformation_message = VideoTransformationMessage(
+                ppt_id=original_message.ppt_id,
+                user_id=original_message.user_id,
+                video_id=original_message.video_id,
+                index=original_message.index,
+                avatar_video_url=video_url,
+                show_avatar=original_message.show_avatar,
+                avatar_persona=original_message.avatar_persona,
+                avatar_position=original_message.avatar_position,
+                avatar_size=original_message.avatar_size,
+                timestamp=original_message.timestamp
+            )
             
             await self.service_bus.send_message(
                 destination_type="queue",
                 destination_name=self.settings.service_bus_video_transformation_queue_name,
-                message_data=transformation_message
+                message_data=transformation_message.model_dump()
             )
             
             self.logger.info(f"Sent transformation message for PPT {original_message.ppt_id}, slide {original_message.index}")

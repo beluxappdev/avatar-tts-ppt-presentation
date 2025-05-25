@@ -9,7 +9,7 @@ from common.services.base_service import BaseService
 from common.services.cosmos_db import CosmosDBService
 from common.services.blob_storage import BlobStorageService
 from common.models.powerpoint import StatusEnum
-from common.models.messages import VideoGenerationMessage
+from common.models.messages import VideoTransformationMessage
 from common.models.service_config import ServiceBusConfig
 from common.utils.config import Settings
 
@@ -38,10 +38,11 @@ class VideoTransformation(BaseService):
         """Handle video generation message"""
     
         temp_files = []  # Track temporary files for cleanup
+        video_message = None  # Initialize to None to avoid UnboundLocalError
     
         try:
-            # Create VideoGenerationMessage object
-            video_message = VideoGenerationMessage(**message_data)
+            # Create VideoTransformation object
+            video_message = VideoTransformationMessage(**message_data)
         
             # Update Cosmos DB status to In Progress
             self.logger.info(f"Updating video generation status for PPT {video_message.ppt_id}, slide {video_message.index} to In Progress")
@@ -112,14 +113,17 @@ class VideoTransformation(BaseService):
             await self.send_concatenation_message(video_message)
 
         except Exception as e:
-            self.logger.error(f"Error processing video transformation for PPT {video_message.ppt_id}, slide {video_message.index}: {str(e)}")
-        
-            # Update status to failed if we have a valid video_message
-            if 'video_message' in locals():
+            self.logger.error(f"Error processing video transformation: {str(e)}")
+            
+            # Only try to update status if video_message was successfully created
+            if video_message is not None:
+                self.logger.error(f"Error processing video transformation for PPT {video_message.ppt_id}, slide {video_message.index}: {str(e)}")
                 try:
                     await self._update_status(video_message, StatusEnum.FAILED)
                 except Exception as status_error:
                     self.logger.error(f"Failed to update status to FAILED: {str(status_error)}")
+            else:
+                self.logger.error(f"Error processing video transformation (message parsing failed): {str(e)}")
         
             raise  # Re-raise the exception so the message handling framework can handle it appropriately
     
@@ -135,7 +139,7 @@ class VideoTransformation(BaseService):
 
         
     
-    async def _update_status(self, video_message: VideoGenerationMessage, status: StatusEnum, status_type: str = 'both'):
+    async def _update_status(self, video_message: VideoTransformationMessage, status: StatusEnum, status_type: str = 'both'):
         """Update video generation status in Cosmos DB"""
         if status_type in ['transformation_status', 'both']:
             await self.cosmos_db.update_slide_video_status(
@@ -158,7 +162,7 @@ class VideoTransformation(BaseService):
             )
     
     
-    async def send_concatenation_message(self, original_message: VideoGenerationMessage) -> None:
+    async def send_concatenation_message(self, original_message: VideoTransformationMessage) -> None:
         """Send message to video transformation queue"""
         try:
             concatenation_message = {
