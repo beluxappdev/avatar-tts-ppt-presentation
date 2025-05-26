@@ -3,7 +3,7 @@ import os
 import io
 from pptx import Presentation
 from datetime import datetime
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Request # type: ignore
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Request, BackgroundTasks # type: ignore
 import logging
 
 from common.models.powerpoint import PowerPointModel, StatusInformation, VideoInformationModel, SlideVideoModel
@@ -46,6 +46,7 @@ def validate_powerpoint_file(file: UploadFile) -> None:
 @router.post("/powerpoint/upload")
 async def upload_powerpoint(
     request: Request,
+    background_tasks: BackgroundTasks,
     user_id: str = Form(...),
     file: UploadFile = File(...)
 ) -> dict:
@@ -54,6 +55,7 @@ async def upload_powerpoint(
     
     Args:
         request: FastAPI request object to access app state
+        background_tasks: FastAPI background tasks
         user_id: User ID from the form
         file: PowerPoint file to process
         
@@ -64,10 +66,7 @@ async def upload_powerpoint(
         logger.info(f"Received PowerPoint upload request from user: {user_id}")
         
         # Get services from app state
-        blob_service = request.app.state.blob_service
-        service_bus_service = request.app.state.service_bus_service
         cosmos_service = request.app.state.cosmos_service
-        settings = request.app.state.settings
         
         # Validate the uploaded file
         validate_powerpoint_file(file)
@@ -75,7 +74,7 @@ async def upload_powerpoint(
         # Generate unique ID for this PowerPoint
         ppt_id = str(uuid.uuid4())
         
-        # Read file data
+        # Read file data for validation
         file_data = await file.read()
         
         # Validate file size after reading
@@ -84,76 +83,131 @@ async def upload_powerpoint(
                 f"File too large. Maximum size allowed: {MAX_FILE_SIZE_BYTES / 1024 / 1024:.1f} MB"
             )
         
+        # Get slide count for the initial record
+        slide_count = get_slide_count_from_pptx(file_data)
+        
+        # Create PowerPoint model for Cosmos DB with initial status
+        powerpoint_model = PowerPointModel(
+            id=ppt_id,
+            user_id=user_id,
+            file_name=file.filename,
+            blob_url=None,  # Will be updated in background task
+            blob_storage_status=StatusInformation(
+                status="Processing",  # Initial status
+                started_at=datetime.utcnow()
+            ),
+            number_of_slides=slide_count
+        )
+        
+        # Create record in Cosmos DB immediately
+        logger.info(f"Creating PowerPoint record in Cosmos DB: {ppt_id}")
+        await cosmos_service.create_powerpoint_record(powerpoint_model)
+        
+        # Add the blob upload and Service Bus messaging to background tasks
+        background_tasks.add_task(
+            process_powerpoint_background,
+            request.app.state,
+            ppt_id,
+            user_id,
+            file.filename,
+            file_data
+        )
+        
+        logger.info(f"PowerPoint upload initiated successfully: {ppt_id}")
+        
+        # Return immediately with ppt_id
+        return {
+            "message": "PowerPoint uploaded successfully and processing started",
+            "ppt_id": ppt_id,
+            "file_name": file.filename
+        }
+        
+    except FileValidationError as e:
+        logger.error(f"File validation failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error during PowerPoint upload: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during upload")
+
+
+async def process_powerpoint_background(
+    app_state,
+    ppt_id: str,
+    user_id: str,
+    filename: str,
+    file_data: bytes
+):
+    """
+    Background task to handle blob upload and Service Bus messaging
+    """
+    try:
+        # Get services from app state
+        blob_service = app_state.blob_service
+        service_bus_service = app_state.service_bus_service
+        cosmos_service = app_state.cosmos_service
+        settings = app_state.settings
+        
         # Create blob path: {container_name}/{ppt_id}/{file_name}.pptx
-        blob_name = f"{ppt_id}/{file.filename}"
+        blob_name = f"{ppt_id}/{filename}"
         
         # Upload file to blob storage
-        logger.info(f"Uploading file to blob storage: {blob_name}")
+        logger.info(f"Background: Uploading file to blob storage: {blob_name}")
         blob_url = await blob_service.upload_file(
             container_name=settings.blob_container_name,
             blob_name=blob_name,
             file_data=file_data
         )
 
-        # Retrieve the number of slides from the PowerPoint file
-        slide_count = get_slide_count_from_pptx(file_data)
+        # Get the current PowerPoint record to update it
+        logger.info(f"Background: Retrieving PowerPoint record to update: {ppt_id}")
+        current_powerpoint, _ = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
         
-        # Create PowerPoint model for Cosmos DB
-        powerpoint_model = PowerPointModel(
-            id=ppt_id,
-            user_id=user_id,
-            file_name=file.filename,
-            blob_url=blob_url,
-            blob_storage_status=StatusInformation(
-                status="Completed",
-                completed_at=datetime.utcnow()
-            ),
-            number_of_slides=slide_count
+        # Update the record with blob URL and completed status
+        current_powerpoint.blob_url = blob_url
+        current_powerpoint.blob_storage_status = StatusInformation(
+            status="Completed",
+            completed_at=datetime.utcnow()
         )
-        
-        # Save to Cosmos DB
-        logger.info(f"Creating PowerPoint record in Cosmos DB: {ppt_id}")
-        await cosmos_service.create_powerpoint_record(powerpoint_model)
+
+        # Update the record using your existing method
+        logger.info(f"Background: Updating PowerPoint record with blob URL: {ppt_id}")
+        await cosmos_service.update_powerpoint_record(current_powerpoint)
         
         # Create message for Service Bus
         processing_message = ExtractionMessage(
             ppt_id=ppt_id,
             user_id=user_id,
-            file_name=file.filename,
+            file_name=filename,
             blob_url=blob_url,
             timestamp=datetime.utcnow()
         )
-        
+
         # Send message to Service Bus topic
-        logger.info(f"Sending processing message to Service Bus for PPT: {ppt_id}")
+        logger.info(f"Background: Sending processing message to Service Bus for PPT: {ppt_id}")
         await service_bus_service.send_message(
             destination_type="topic",
             destination_name=settings.service_bus_topic_name,
             message_data=processing_message.model_dump()
         )
         
-        logger.info(f"PowerPoint upload completed successfully: {ppt_id}")
-        
-        return {
-            "message": "PowerPoint uploaded successfully and processing started",
-            "ppt_id": ppt_id,
-            "user_id": user_id,
-            "file_name": file.filename,
-            "blob_url": blob_url,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        
-    except FileValidationError as e:
-        logger.error(f"File validation error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-        
-    except PPTProcessingError as e:
-        logger.error(f"Processing error: {e}")
-        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
+        logger.info(f"Background: PowerPoint processing completed successfully: {ppt_id}")
         
     except Exception as e:
-        logger.error(f"Unexpected error during PowerPoint upload: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"Background task failed for PPT {ppt_id}: {str(e)}")
+        
+        # Update the record status to failed
+        try:
+            # Get current record and update status to failed
+            current_powerpoint = await cosmos_service.get_powerpoint_by_id(ppt_id)
+            current_powerpoint.blob_storage_status = StatusInformation(
+                status="Failed",
+                error_message=str(e),
+                completed_at=datetime.utcnow()
+            )
+            await cosmos_service.update_powerpoint_record(current_powerpoint)
+            
+        except Exception as update_error:
+            logger.error(f"Failed to update PowerPoint record status to failed: {update_error}")
 
 @router.get("/powerpoint/{ppt_id}/slides/user/{user_id}")
 async def get_powerpoint_slides(

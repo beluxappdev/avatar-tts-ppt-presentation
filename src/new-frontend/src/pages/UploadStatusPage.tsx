@@ -1,28 +1,31 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
-interface StatusStep {
-  id: string;
-  label: string;
-  status: 'pending' | 'processing' | 'completed' | 'error';
-}
+import { useProcessingStatus } from '../hooks/useProcessingStatus';
+import { ProcessingStatus } from '../types/status';
 
 export const UploadStatusPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user } = useAuth();
 
-  // Mock status data - will be replaced with real data from websocket
-  const statusSteps: StatusStep[] = [
-    { id: 'saving', label: 'Saving PowerPoint', status: 'completed' },
-    { id: 'extracting_scripts', label: 'Extracting Scripts', status: 'processing' },
-    { id: 'extracting_images', label: 'Extracting Images', status: 'pending' },
-  ];
+  const {
+    statusSteps,
+    isConnected,
+    connectionError,
+    getCompletedStepsCount,
+    getTotalStepsCount,
+    isProcessingComplete,
+    hasFailedSteps,
+    getCurrentProcessingStep
+  } = useProcessingStatus({
+    presentationId: id || '',
+    userId: user?.id || ''
+  });
 
-  const getStepIcon = (status: StatusStep['status']) => {
+  const getStepIcon = (status: ProcessingStatus) => {
     switch (status) {
-      case 'completed':
+      case 'Completed':
         return (
           <div style={{
             width: '24px',
@@ -39,7 +42,7 @@ export const UploadStatusPage: React.FC = () => {
             ✓
           </div>
         );
-      case 'processing':
+      case 'Processing':
         return (
           <div style={{
             width: '24px',
@@ -50,7 +53,7 @@ export const UploadStatusPage: React.FC = () => {
             animation: 'spin 1s linear infinite'
           }} />
         );
-      case 'error':
+      case 'Failed':
         return (
           <div style={{
             width: '24px',
@@ -67,7 +70,7 @@ export const UploadStatusPage: React.FC = () => {
             ✕
           </div>
         );
-      default: // pending
+      default: // Pending
         return (
           <div style={{
             width: '24px',
@@ -80,22 +83,63 @@ export const UploadStatusPage: React.FC = () => {
     }
   };
 
-  const getStepTextColor = (status: StatusStep['status']) => {
+  const getStepTextColor = (status: ProcessingStatus) => {
     switch (status) {
-      case 'completed':
+      case 'Completed':
         return '#10b981';
-      case 'processing':
+      case 'Processing':
         return '#3b82f6';
-      case 'error':
+      case 'Failed':
         return '#ef4444';
       default:
         return '#9ca3af';
     }
   };
 
+  const getStatusMessage = (status: ProcessingStatus) => {
+    switch (status) {
+      case 'Processing':
+        return 'In progress...';
+      case 'Completed':
+        return 'Completed successfully';
+      case 'Failed':
+        return 'Failed - please try again';
+      default:
+        return 'Waiting to start...';
+    }
+  };
+
   const handleBackToHome = () => {
     navigate('/');
   };
+
+  const handleProceedToCustomization = () => {
+    navigate(`/powerpoint/${id}/customize`);
+  };
+
+  const getProgressSummary = () => {
+    const completed = getCompletedStepsCount();
+    const total = getTotalStepsCount();
+    
+    if (hasFailedSteps()) {
+      return 'Processing failed - please check the errors above';
+    }
+    
+    if (isProcessingComplete()) {
+      return 'All steps completed successfully!';
+    }
+    
+    const currentStep = getCurrentProcessingStep();
+    if (currentStep) {
+      return `${currentStep.label} • Step ${completed + 1} of ${total}`;
+    }
+    
+    return `${completed} of ${total} steps completed`;
+  };
+
+  if (!id || !user) {
+    return <div>Invalid presentation ID or user not authenticated</div>;
+  }
 
   return (
     <div style={{ 
@@ -131,21 +175,36 @@ export const UploadStatusPage: React.FC = () => {
               Presentation ID: {id}
             </p>
           </div>
-          <button 
-            onClick={logout}
-            style={{
-              backgroundColor: 'transparent',
-              color: '#64748b',
-              border: '1px solid #e2e8f0',
-              padding: '8px 16px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Sign Out
-          </button>
         </div>
+
+        {/* Connection Status */}
+        {connectionError && (
+          <div style={{
+            marginBottom: '1rem',
+            padding: '12px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '6px',
+            color: '#dc2626',
+            fontSize: '14px'
+          }}>
+            ⚠️ Connection error: {connectionError}
+          </div>
+        )}
+
+        {!isConnected && !connectionError && (
+          <div style={{
+            marginBottom: '1rem',
+            padding: '12px',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #fde68a',
+            borderRadius: '6px',
+            color: '#92400e',
+            fontSize: '14px'
+          }}>
+            🔄 Connecting to status updates...
+          </div>
+        )}
 
         {/* Status Steps */}
         <div style={{ 
@@ -166,7 +225,7 @@ export const UploadStatusPage: React.FC = () => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {statusSteps.map((step, index) => (
-              <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'relative' }}>
                 {/* Step Icon */}
                 {getStepIcon(step.status)}
                 
@@ -180,24 +239,13 @@ export const UploadStatusPage: React.FC = () => {
                   }}>
                     {step.label}
                   </h3>
-                  {step.status === 'processing' && (
-                    <p style={{ 
-                      margin: '0.25rem 0 0 0', 
-                      color: '#64748b',
-                      fontSize: '14px'
-                    }}>
-                      In progress...
-                    </p>
-                  )}
-                  {step.status === 'completed' && (
-                    <p style={{ 
-                      margin: '0.25rem 0 0 0', 
-                      color: '#10b981',
-                      fontSize: '14px'
-                    }}>
-                      Completed successfully
-                    </p>
-                  )}
+                  <p style={{ 
+                    margin: '0.25rem 0 0 0', 
+                    color: step.status === 'Failed' ? '#ef4444' : '#64748b',
+                    fontSize: '14px'
+                  }}>
+                    {getStatusMessage(step.status)}
+                  </p>
                 </div>
 
                 {/* Connection Line to Next Step */}
@@ -208,7 +256,7 @@ export const UploadStatusPage: React.FC = () => {
                     top: '100%',
                     width: '2px',
                     height: '1.5rem',
-                    backgroundColor: step.status === 'completed' ? '#10b981' : '#e5e7eb',
+                    backgroundColor: step.status === 'Completed' ? '#10b981' : '#e5e7eb',
                     marginTop: '0.5rem'
                   }} />
                 )}
@@ -220,21 +268,21 @@ export const UploadStatusPage: React.FC = () => {
           <div style={{ 
             marginTop: '2rem', 
             padding: '1rem',
-            backgroundColor: '#f8fafc',
+            backgroundColor: hasFailedSteps() ? '#fef2f2' : isProcessingComplete() ? '#dcfce7' : '#f8fafc',
             borderRadius: '8px',
             textAlign: 'center'
           }}>
             <p style={{ 
               margin: 0, 
-              color: '#64748b',
+              color: hasFailedSteps() ? '#dc2626' : isProcessingComplete() ? '#166534' : '#64748b',
               fontSize: '14px'
             }}>
-              Step 2 of 3 completed • Estimated time remaining: ~2 minutes
+              {getProgressSummary()}
             </p>
           </div>
 
-          {/* Back Button */}
-          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+          {/* Action Buttons */}
+          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
             <button
               onClick={handleBackToHome}
               style={{
@@ -250,6 +298,24 @@ export const UploadStatusPage: React.FC = () => {
             >
               Back to Home
             </button>
+
+            {isProcessingComplete() && (
+              <button
+                onClick={handleProceedToCustomization}
+                style={{
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '500'
+                }}
+              >
+                Customize Presentation
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -64,7 +64,7 @@ class CosmosDBService:
             user_id (str): The user ID associated with the PowerPoint record.
 
         Returns:
-            Optional[PowerPointModel]: The PowerPoint model instance if found, otherwise None.
+            Optional[PowerPointModel], etag: The PowerPoint model instance if found, otherwise None and the etag for concurrency control.
         """
         try:
             container = await self._get_container()

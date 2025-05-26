@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { UploadService, UploadPowerPointRequest, UploadPowerPointResponse } from '../services/uploadService';
+import { UploadService } from '../services/uploadService';
+import { UploadPowerPointRequest, UploadPowerPointResponse } from '../types/uploadTypes';
 
 export interface UseUploadReturn {
   uploadPowerPoint: (file: File) => Promise<UploadPowerPointResponse | null>;
@@ -39,6 +40,7 @@ export const useUpload = (): UseUploadReturn => {
       };
 
       const result = await UploadService.uploadPowerPoint(request, token);
+
       setUploadSuccess(true);
       
       // Auto-clear success after 3 seconds

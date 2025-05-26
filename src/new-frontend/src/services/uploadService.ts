@@ -1,16 +1,5 @@
 import { API_BASE_URL } from "../config/apiConfig";
-
-export interface UploadPowerPointRequest {
-  file: File;
-  userId: string;
-}
-
-export interface UploadPowerPointResponse {
-  id: string;
-  filename: string;
-  status: 'processing' | 'ready' | 'error';
-  message?: string;
-}
+import { UploadPowerPointRequest, UploadPowerPointResponse } from "../types/uploadTypes";
 
 export class UploadService {
   static async uploadPowerPoint(
@@ -33,6 +22,13 @@ export class UploadService {
       throw new Error(`Upload failed: ${response.statusText}`);
     }
 
-    return response.json();
+    const apiResponse = await response.json();
+    
+    // Transform API response to match TypeScript type
+    return {
+      id: apiResponse.ppt_id,
+      filename: apiResponse.file_name,
+      message: apiResponse.message
+    };
   }
 }
