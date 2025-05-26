@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, Box, CircularProgress } from '@mui/material';
-import SlideEditor, { EditorSlide } from './SlideEditor';
+import SlideEditor, { EditorSlide } from './SlideList';
 import PresentationStatus from './PresentationStatus';
 
 interface PresentationViewProps {

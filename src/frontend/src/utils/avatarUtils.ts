@@ -3,7 +3,7 @@ import JeffAvatar from '../assets/avatars/jeff.png';
 import LisaAvatar from '../assets/avatars/lisa.png';
 import LoriAvatar from '../assets/avatars/lori.png';
 import MaxAvatar from '../assets/avatars/max.png';
-import { EditorSlide } from '../components/SlideEditor';
+import { EditorSlide } from '../components/SlideList';
 
 export const AVATAR_IMAGE_MAP = {
   Harry: HarryAvatar,

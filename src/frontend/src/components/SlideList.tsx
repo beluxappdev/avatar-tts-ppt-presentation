@@ -1,12 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Paper, Stack, Button, Tooltip } from '@mui/material';
+import { 
+  Box, 
+  Typography, 
+  Button, 
+  Tooltip, 
+  Paper,
+  Container,
+  Divider,
+  Alert
+} from '@mui/material';
 import axios from 'axios';
-import SlideItem from './SlideItem';
+import SingleSlide from './SingleSlide';
 import SlideEditorHeader from './SlideEditorHeader';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import HistoryIcon from '@mui/icons-material/History';
+import SlideshowIcon from '@mui/icons-material/Slideshow';
 import { GENERATE_VIDEO_URL } from '../utils/apiConfig';
 
 export const VOICE_OPTIONS = ['None', 'Harry', 'Jeff', 'Lisa', 'Lori', 'Max'];
@@ -20,9 +30,6 @@ export const AVATAR_POSITIONS = [
   'UpperRight'
 ] as const;
 
-
-//rm debounce, show, crop images more
-
 export interface EditorSlide {
   id: string;
   index: number;
@@ -34,7 +41,7 @@ export interface EditorSlide {
   script?: string;
 }
 
-interface SlideEditorProps {
+interface SlidesListProps {
   slides: EditorSlide[];
   pptId: string | null;
 }
@@ -45,20 +52,27 @@ interface SlideHistory {
   description: string;
 }
 
-const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId }) => {
+const SlidesList: React.FC<SlidesListProps> = ({ slides: initialSlides, pptId }) => {
   const [slides, setSlides] = useState<EditorSlide[]>(initialSlides);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [expandedSlides, setExpandedSlides] = useState<Record<string, boolean>>({});
-  const [allExpanded, setAllExpanded] = useState(true);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-
   const [history, setHistory] = useState<SlideHistory[]>([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
   const [lastSavedTimestamp, setLastSavedTimestamp] = useState<number>(0);
+  const [expandedSlides, setExpandedSlides] = useState<Record<string, boolean>>({});
 
+  const { 
+    draggedItemIndex,
+    onDragStart,
+    onDragOver,
+    onDragLeave,
+    onDrop,
+    onDragEnd
+  } = useDragAndDrop(slides, setSlides);
+
+  // Initialize history when slides load
   useEffect(() => {
     if (initialSlides.length > 0) {
       const initialHistory: SlideHistory = {
@@ -72,39 +86,16 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     }
   }, [initialSlides]);
 
-  const handleDragDrop = useCallback((updatedSlides: EditorSlide[]) => {
-    setSlides(updatedSlides);
-    addToHistory(updatedSlides, "Reordered slides");
-  }, []);
-
-  const { 
-    draggedItemIndex,
-    onDragStart,
-    onDragOver,
-    onDragLeave,
-    onDrop,
-    onDragEnd
-  } = useDragAndDrop(slides, setSlides);
-
-  // initial slide load
+  // Update slides when initialSlides change
   useEffect(() => {
     setSlides(initialSlides);
+    // Initialize expanded state for new slides
     const newExpandedState: Record<string, boolean> = {};
     initialSlides.forEach(slide => {
-      newExpandedState[slide.id] = allExpanded;
+      newExpandedState[slide.id] = expandedSlides[slide.id] || false;
     });
     setExpandedSlides(newExpandedState);
   }, [initialSlides]);
-
-  // handle expansion state
-  useEffect(() => {
-    const newExpandedState: Record<string, boolean> = {};
-    slides.forEach(slide => {
-      newExpandedState[slide.id] = expandedSlides[slide.id] !== undefined ? 
-        expandedSlides[slide.id] : allExpanded;
-    });
-    setExpandedSlides(newExpandedState);
-  }, [allExpanded, slides.length]);
 
   const addToHistory = useCallback((newSlides: EditorSlide[], description: string) => {
     const newHistoryItem: SlideHistory = {
@@ -113,7 +104,6 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
       description
     };
     
-    // remove future history if we are adding a new entry/not at the end
     if (currentHistoryIndex < history.length - 1) {
       setHistory(prevHistory => prevHistory.slice(0, currentHistoryIndex + 1));
     }
@@ -123,26 +113,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     setLastSavedTimestamp(Date.now());
   }, [history, currentHistoryIndex]);
 
-  // this only really applies to script changes right now (<3 seconds) to not clutter too much
-  const debouncedScriptChange = useCallback((id: string, value: string, slideTitle: string) => {
-    const now = Date.now();
-    if (now - lastSavedTimestamp > 3000) {
-      const updatedSlides = slides.map(slide => 
-        slide.id === id ? { ...slide, script: value } : slide
-      );
-      addToHistory(updatedSlides, `Updated script for slide "${slideTitle}"`);
-    }
-  }, [slides, addToHistory, lastSavedTimestamp]);
-
   const handleUndoRedo = useCallback((isUndo: boolean) => {
     if (isUndo && currentHistoryIndex > 0) {
-      
-      // UNDO
       setCurrentHistoryIndex(prevIndex => prevIndex - 1);
       setSlides(history[currentHistoryIndex - 1].slides);
     } else if (!isUndo && currentHistoryIndex < history.length - 1) {
-      
-      // REDO
       setCurrentHistoryIndex(prevIndex => prevIndex + 1);
       setSlides(history[currentHistoryIndex + 1].slides);
     }
@@ -165,32 +140,16 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     
     setSlides(newSlides);
     
-    if (field === 'script') {
-      const slideTitle = slides.find(s => s.id === id)?.title || 'Unknown';
-      debouncedScriptChange(id, value, slideTitle);
-    } else {
-      const slideTitle = slides.find(s => s.id === id)?.title || 'Unknown';
-      addToHistory(newSlides, `Changed ${field} for slide "${slideTitle}"`);
-    }
-  }, [slides, addToHistory, debouncedScriptChange]);
+    const slideTitle = slides.find(s => s.id === id)?.title || 'Unknown';
+    addToHistory(newSlides, `Updated ${field} for slide "${slideTitle}"`);
+  }, [slides, addToHistory]);
 
-  const toggleSlideExpansion = (id: string) => {
+  const toggleSlideExpansion = useCallback((id: string) => {
     setExpandedSlides(prev => ({
       ...prev,
       [id]: !prev[id]
     }));
-  };
-
-  const toggleAllExpansion = () => {
-    const newExpandedState = !allExpanded;
-    setAllExpanded(newExpandedState);
-    
-    const newExpandedSlides: Record<string, boolean> = {};
-    slides.forEach(slide => {
-      newExpandedSlides[slide.id] = newExpandedState;
-    });
-    setExpandedSlides(newExpandedSlides);
-  };
+  }, []);
 
   const handleGenerateVideo = async () => {
     if (!pptId) {
@@ -270,66 +229,95 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
   };
 
   return (
-    <Box sx={{ p: 2 }}>
-      <SlideEditorHeader 
-        pptId={pptId}
-        slideCount={slides.length}
-        allExpanded={allExpanded}
-        isProcessing={isProcessing}
-        submitSuccess={submitSuccess}
-        submitError={submitError}
-        onToggleAllExpansion={toggleAllExpansion}
-        onGenerateVideo={handleGenerateVideo}
-        onBulkConfigure={handleBulkConfigure}
-      />
-      
-      {/* History Controls */}
-      <Box sx={{ display: 'flex', mb: 2, alignItems: 'center' }}>
-        <Tooltip title="Undo last action">
-          <span>
-            <Button 
-              startIcon={<UndoIcon />} 
-              onClick={() => handleUndoRedo(true)}
-              disabled={currentHistoryIndex <= 0}
-              size="small"
-              variant="outlined"
-            >
-              Undo
-            </Button>
-          </span>
-        </Tooltip>
-        
-        <Tooltip title="Redo last undone action">
-          <span>
-            <Button 
-              startIcon={<RedoIcon />} 
-              onClick={() => handleUndoRedo(false)}
-              disabled={currentHistoryIndex >= history.length - 1}
-              size="small"
-              variant="outlined"
-              sx={{ ml: 1 }}
-            >
-              Redo
-            </Button>
-          </span>
-        </Tooltip>
-        
-        <Box sx={{ ml: 2, display: 'flex', alignItems: 'center' }}>
-          <HistoryIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-          <Typography variant="body2" color="text.secondary">
-            {getCurrentHistoryDescription()}
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Header Section */}
+      <Paper elevation={2} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <SlideshowIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />
+          <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary' }}>
+            Slide Editor
           </Typography>
         </Box>
-      </Box>
+        
+        <SlideEditorHeader 
+          pptId={pptId}
+          slideCount={slides.length}
+          allExpanded={true}
+          isProcessing={isProcessing}
+          submitSuccess={submitSuccess}
+          submitError={submitError}
+          onToggleAllExpansion={() => {}}
+          onGenerateVideo={handleGenerateVideo}
+          onBulkConfigure={handleBulkConfigure}
+        />
+      </Paper>
+
+      {/* History Controls */}
+      <Paper elevation={1} sx={{ p: 2, mb: 4, borderRadius: 3, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Tooltip title="Undo last action">
+            <span>
+              <Button 
+                startIcon={<UndoIcon />} 
+                onClick={() => handleUndoRedo(true)}
+                disabled={currentHistoryIndex <= 0}
+                size="small"
+                variant="outlined"
+                sx={{ borderRadius: 2 }}
+              >
+                Undo
+              </Button>
+            </span>
+          </Tooltip>
+          
+          <Tooltip title="Redo last undone action">
+            <span>
+              <Button 
+                startIcon={<RedoIcon />} 
+                onClick={() => handleUndoRedo(false)}
+                disabled={currentHistoryIndex >= history.length - 1}
+                size="small"
+                variant="outlined"
+                sx={{ borderRadius: 2 }}
+              >
+                Redo
+              </Button>
+            </span>
+          </Tooltip>
+          
+          <Divider orientation="vertical" flexItem />
+          
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <HistoryIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+            <Typography variant="body2" color="text.secondary">
+              {getCurrentHistoryDescription()}
+            </Typography>
+          </Box>
+        </Box>
+      </Paper>
+
+      {/* Success/Error Messages */}
+      {submitSuccess && (
+        <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>
+          Video generation started successfully!
+        </Alert>
+      )}
       
-      {/* Slides list */}
-      <Stack spacing={2}>
-        {slides.map((slide, index) => (
-          <Paper key={slide.id} elevation={3}>
-            <SlideItem
+      {submitError && (
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+          Error: {submitError}
+        </Alert>
+      )}
+
+      {/* Slides List - Single Column */}
+      {slides.length > 0 ? (
+        <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+          {slides.map((slide, index) => (
+            <SingleSlide
+              key={slide.id}
               slide={slide}
               index={index}
-              isExpanded={expandedSlides[slide.id] !== undefined ? expandedSlides[slide.id] : true}
+              isExpanded={expandedSlides[slide.id] || false}
               draggedItemIndex={draggedItemIndex}
               onDragStart={onDragStart}
               onDragOver={onDragOver}
@@ -337,24 +325,35 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
               onDrop={onDrop}
               onDragEnd={onDragEnd}
               onSlideChange={handleSlideChange}
-              onToggleExpand={toggleSlideExpansion}
               onDelete={handleDeleteSlide}
+              onToggleExpand={toggleSlideExpansion}
             />
-          </Paper>
-        ))}
-      </Stack>
-
-      {/* Empty state */}
-      {slides.length === 0 && (
-        <Typography sx={{ mt: 2 }}>
-          {pptId 
-            ? "Waiting for slides to be processed or no slides found." 
-            : "Upload a presentation to see slides here."
-          }
-        </Typography>
+          ))}
+        </Box>
+      ) : (
+        <Paper 
+          elevation={1} 
+          sx={{ 
+            p: 6, 
+            textAlign: 'center',
+            borderRadius: 3,
+            backgroundColor: 'rgba(0, 0, 0, 0.02)'
+          }}
+        >
+          <SlideshowIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+            No slides available
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {pptId 
+              ? "Waiting for slides to be processed or no slides found." 
+              : "Upload a presentation to see slides here."
+            }
+          </Typography>
+        </Paper>
       )}
-    </Box>
+    </Container>
   );
 };
 
-export default SlideEditor;
+export default SlidesList;

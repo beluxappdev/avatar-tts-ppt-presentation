@@ -18,7 +18,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { EditorSlide } from './SlideEditor';
 import { getAvatarImageUrl, getAvatarStyle } from '../utils/avatarUtils';
-import { VOICE_OPTIONS, AVATAR_SIZES, AVATAR_POSITIONS } from './SlideEditor';
+import { VOICE_OPTIONS, AVATAR_SIZES, AVATAR_POSITIONS } from './SlideList';
 
 interface SlideItemProps {
   slide: EditorSlide;

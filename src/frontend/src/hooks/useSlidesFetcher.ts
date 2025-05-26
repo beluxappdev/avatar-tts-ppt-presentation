@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import axios from 'axios';
 import { SLIDES_API_URL } from '../utils/apiConfig';
-import { EditorSlide } from '../components/SlideEditor';
+import { EditorSlide } from '../components/SlideList';
 
 export const useSlidesFetcher = (setSlides: React.Dispatch<React.SetStateAction<EditorSlide[]>>, setStatusMessage: (message: string) => void) => {
   return useCallback(async (pptId: string) => {

@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { CssBaseline, ThemeProvider, createTheme, Box } from '@mui/material';
 import FileUpload from './components/FileUpload';
-import { EditorSlide } from './components/SlideEditor';
+import { EditorSlide } from './components/SlideList';
 import Sidebar from './components/Sidebar';
 import PresentationView from './components/PresentationView';
 import { useWebSocket, ProcessingStatusUpdate, ProcessingUpdate } from './hooks/useWebSocket';
