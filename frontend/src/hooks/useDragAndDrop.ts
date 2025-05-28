@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { EditorSlide } from '../components/SlideEditor';
 
-export const useDragAndDrop = (slides: EditorSlide[], setSlides: React.Dispatch<React.SetStateAction<EditorSlide[]>>) => {
+export const useDragAndDrop = (
+  slides: EditorSlide[], 
+  setSlides: React.Dispatch<React.SetStateAction<EditorSlide[]>>,
+  onReorder?: (updatedSlides: EditorSlide[]) => void
+) => {
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
 
   const onDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
@@ -57,6 +61,11 @@ export const useDragAndDrop = (slides: EditorSlide[], setSlides: React.Dispatch<
     }));
     
     setSlides(updatedSlides);
+    
+    if (onReorder) {
+      onReorder(updatedSlides);
+    }
+    
     setDraggedItemIndex(null);
   };
 

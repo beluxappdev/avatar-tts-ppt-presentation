@@ -97,11 +97,6 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     }
   }, [initialSlides]);
 
-  const handleDragDrop = useCallback((updatedSlides: EditorSlide[]) => {
-    setSlides(updatedSlides);
-    addToHistory(updatedSlides, "Reordered slides");
-  }, []);
-
   const { 
     draggedItemIndex,
     onDragStart,
@@ -109,7 +104,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     onDragLeave,
     onDrop,
     onDragEnd
-  } = useDragAndDrop(slides, setSlides);
+  } = useDragAndDrop(slides, setSlides, (updatedSlides) => {
+    addToHistory(updatedSlides, "Reordered slides");
+  });
 
   // initial slide load
   useEffect(() => {
