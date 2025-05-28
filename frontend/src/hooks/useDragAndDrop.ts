@@ -51,7 +51,12 @@ export const useDragAndDrop = (slides: EditorSlide[], setSlides: React.Dispatch<
     const draggedItem = newSlides.splice(draggedItemIndex, 1)[0];
     newSlides.splice(targetIndex, 0, draggedItem);
     
-    setSlides(newSlides);
+    const updatedSlides = newSlides.map((slide, idx) => ({
+      ...slide,
+      index: idx
+    }));
+    
+    setSlides(updatedSlides);
     setDraggedItemIndex(null);
   };
 
