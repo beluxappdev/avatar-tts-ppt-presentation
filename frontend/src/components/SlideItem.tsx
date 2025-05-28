@@ -14,6 +14,8 @@ import {
 } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { EditorSlide } from './SlideEditor';
@@ -30,7 +32,7 @@ interface SlideItemProps {
   onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
   onDrop: (e: React.DragEvent<HTMLDivElement>, index: number) => void;
   onDragEnd: (e: React.DragEvent<HTMLDivElement>) => void;
-  onSlideChange: (id: string, field: keyof EditorSlide, value: string) => void;
+  onSlideChange: (id: string, field: keyof EditorSlide, value: string | boolean) => void;
   onToggleExpand: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -57,11 +59,12 @@ const SlideItem: React.FC<SlideItemProps> = ({
         flexDirection: 'column',
         alignItems: 'flex-start', 
         gap: 1,
-        opacity: draggedItemIndex === index ? 0.5 : 1,
+        opacity: slide.excluded ? 0.5 : (draggedItemIndex === index ? 0.5 : 1),
         transition: 'all 0.2s ease',
         backgroundColor: 'background.paper',
         borderRadius: 1,
         boxShadow: 3,
+        position: 'relative',
         '&:hover': {
           backgroundColor: 'rgba(0, 0, 0, 0.02)'
         }
@@ -71,12 +74,48 @@ const SlideItem: React.FC<SlideItemProps> = ({
       onDrop={(e) => onDrop(e, index)}
       onDragEnd={onDragEnd}
     > 
-      {/* Top row with drag handle, thumbnail, title and control buttons */}
+      {/* Control buttons positioned at top right */}
+      <Box sx={{ 
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.5,
+        zIndex: 1
+      }}>
+        <IconButton 
+          size="small" 
+          onClick={() => onSlideChange(slide.id, 'excluded', !slide.excluded)}
+          aria-label={slide.excluded ? "Include in generation" : "Exclude from generation"}
+          color={slide.excluded ? "default" : "primary"}
+        >
+          {slide.excluded ? <VisibilityOffIcon /> : <VisibilityIcon />}
+        </IconButton>
+        <IconButton 
+          size="small" 
+          onClick={() => onToggleExpand(slide.id)}
+          aria-label={isExpanded ? "Collapse" : "Expand"}
+        >
+          {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
+        <IconButton
+          aria-label="delete slide"
+          size="small"
+          onClick={() => onDelete(slide.id)}
+          color="error"
+        >
+          <DeleteIcon />
+        </IconButton>
+      </Box>
+
+      {/* Top row with drag handle, thumbnail, title */}
       <Box sx={{ 
         display: 'flex', 
         width: '100%',
         alignItems: 'center', 
-        gap: 2 
+        gap: 2,
+        pr: 15
       }}>
         {/* Drag handle */}
         <Box
@@ -106,11 +145,7 @@ const SlideItem: React.FC<SlideItemProps> = ({
           overflow: 'hidden',
           transition: 'all 0.3s ease',
           boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-          '&:hover': {
-            boxShadow: '0 3px 10px rgba(0,0,0,0.2)',
-            transform: 'translateY(-2px)',
-            filter: 'brightness(1.05)',
-          }
+          filter: slide.excluded ? 'grayscale(1)' : 'none',
         }}>
           <CardMedia
             component="img"
@@ -133,33 +168,12 @@ const SlideItem: React.FC<SlideItemProps> = ({
           minWidth: '100px',
           marginLeft: -1
         }}>
-          <Typography variant="subtitle2" noWrap>
+          <Typography variant="subtitle2" noWrap sx={{ textDecoration: slide.excluded ? 'line-through' : 'none' }}>
             {slide.title}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Index: {slide.index}
+            Index: {slide.index} {slide.excluded && '(Excluded)'}
           </Typography>
-        </Box>
-        
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center',
-          marginLeft: 'auto'
-        }}>
-          <IconButton 
-            size="small" 
-            onClick={() => onToggleExpand(slide.id)}
-            aria-label={isExpanded ? "Collapse" : "Expand"}
-          >
-            {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </IconButton>
-          <IconButton
-            aria-label="delete slide"
-            onClick={() => onDelete(slide.id)}
-            color="error"
-          >
-            <DeleteIcon />
-          </IconButton>
         </Box>
       </Box>
 

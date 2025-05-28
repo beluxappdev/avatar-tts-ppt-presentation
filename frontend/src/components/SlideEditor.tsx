@@ -53,6 +53,7 @@ export interface EditorSlide {
   avatarSize: typeof AVATAR_SIZES[number];
   avatarPosition: typeof AVATAR_POSITIONS[number];
   script?: string;
+  excluded?: boolean;
 }
 
 interface SlideEditorProps {
@@ -79,6 +80,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
   const [history, setHistory] = useState<SlideHistory[]>([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
   const [lastSavedTimestamp, setLastSavedTimestamp] = useState<number>(0);
+
+  const excludedCount = slides.filter(slide => slide.excluded).length;
+
 
   useEffect(() => {
     if (initialSlides.length > 0) {
@@ -179,7 +183,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     );
   }, [slides, addToHistory]);
 
-  const handleSlideChange = useCallback((id: string, field: keyof EditorSlide, value: string) => {
+  const handleSlideChange = useCallback((id: string, field: keyof EditorSlide, value: string | boolean) => {
     const newSlides = slides.map(slide =>
       slide.id === id ? { ...slide, [field]: value } : slide
     );
@@ -188,7 +192,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     
     if (field === 'script') {
       const slideTitle = slides.find(s => s.id === id)?.title || 'Unknown';
-      debouncedScriptChange(id, value, slideTitle);
+      debouncedScriptChange(id, value as string, slideTitle);
+    } else if (field === 'excluded') {
+      const slideTitle = slides.find(s => s.id === id)?.title || 'Unknown';
+      const action = value ? 'Excluded' : 'Included';
+      addToHistory(newSlides, `${action} slide "${slideTitle}"`);
     } else {
       const slideTitle = slides.find(s => s.id === id)?.title || 'Unknown';
       addToHistory(newSlides, `Changed ${field} for slide "${slideTitle}"`);
@@ -225,7 +233,16 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
     setSubmitSuccess(false);
     
     try {
-      const formattedSlides = slides.map(slide => ({
+      const includedSlides = slides.filter(slide => !slide.excluded);
+      
+      if (includedSlides.length === 0) {
+        setSubmitError("No slides selected for generation. Please include at least one slide.");
+        setIsProcessing(false);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const formattedSlides = includedSlides.map(slide => ({
         index: slide.index,
         script: slide.script || "",
         avatarConfig: {
@@ -295,6 +312,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({ slides: initialSlides, pptId 
       <SlideEditorHeader 
         pptId={pptId}
         slideCount={slides.length}
+        excludedCount={excludedCount}
         allExpanded={allExpanded}
         isProcessing={isProcessing}
         submitSuccess={submitSuccess}

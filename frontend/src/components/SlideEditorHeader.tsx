@@ -8,6 +8,7 @@ import { VOICE_OPTIONS, AVATAR_SIZES, AVATAR_POSITIONS } from './SlideEditor';
 interface SlideEditorHeaderProps {
   pptId: string | null;
   slideCount: number;
+  excludedCount?: number;
   allExpanded: boolean;
   isProcessing: boolean;
   submitSuccess: boolean;
@@ -20,6 +21,7 @@ interface SlideEditorHeaderProps {
 const SlideEditorHeader: React.FC<SlideEditorHeaderProps> = ({
   pptId,
   slideCount,
+  excludedCount = 0,
   allExpanded,
   isProcessing,
   submitSuccess,
@@ -50,6 +52,11 @@ const SlideEditorHeader: React.FC<SlideEditorHeaderProps> = ({
 
   return (
     <>
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        Presentation Editor - {slideCount} slide{slideCount !== 1 ? 's' : ''}
+        {excludedCount > 0 && ` (${excludedCount} excluded)`}
+      </Typography>
+
       <Box sx={{ display: 'flex', gap: 2 }}>
         <Button 
           variant="outlined"
