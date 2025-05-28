@@ -11,10 +11,13 @@ import {
 } from '@mui/material';
 import { ReactComponent as PowerPointLogo } from '../assets/powerpoint.svg';
 import axios from 'axios';
+import { UPLOAD_PPT_URL } from '../utils/apiConfig';
 
-const API_URL = 'http://localhost:8080/api/save_ppt';
+interface FileUploadProps {
+  onFileUploaded?: (fileId: string) => void;
+}
 
-const FileUpload: React.FC = () => {
+const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded = undefined }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -83,7 +86,7 @@ const FileUpload: React.FC = () => {
       formData.append('file', file);
       formData.append('userId', 'tenant123');
 
-      const response = await axios.post(API_URL, formData, {
+      const response = await axios.post(UPLOAD_PPT_URL, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -94,16 +97,12 @@ const FileUpload: React.FC = () => {
         message: `Successfully uploaded ${file.name}`,
         fileId: response.data.pptId
       });
-    } catch (error) {
-      let errorMessage = 'Failed to upload file';
-      if (axios.isAxiosError(error) && error.response) {
-        errorMessage = error.response.data || errorMessage;
-      }
       
-      setUploadStatus({
-        success: false,
-        message: errorMessage
-      });
+      if (onFileUploaded && response.data.pptId) {
+        onFileUploaded(response.data.pptId);
+      }
+    } catch (error) {
+      // todo
     } finally {
       setIsUploading(false);
     }
@@ -207,5 +206,6 @@ const FileUpload: React.FC = () => {
     </Card>
   );
 };
+
 
 export default FileUpload;
