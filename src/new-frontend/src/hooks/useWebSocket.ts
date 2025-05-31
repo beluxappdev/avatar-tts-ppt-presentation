@@ -3,7 +3,7 @@ import { WebSocketMessage } from '../types/status';
 
 interface UseWebSocketProps {
   url: string;
-  onMessage?: (data: WebSocketMessage) => void;
+  onMessage?: (data: any) => void;
   onError?: (error: Event) => void;
   onClose?: () => void;
   enabled?: boolean;

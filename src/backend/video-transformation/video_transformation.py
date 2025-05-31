@@ -1,8 +1,10 @@
 import tempfile
 import os
+import asyncio
 import aiohttp # type: ignore
 from typing import Dict, Any
 from azure.identity.aio import DefaultAzureCredential # type: ignore
+from concurrent.futures import ThreadPoolExecutor
 
 from common.services.base_service import BaseService
 from common.services.cosmos_db import CosmosDBService
@@ -21,7 +23,8 @@ class VideoTransformation(BaseService):
     def __init__(self, settings: Settings):
         config = ServiceBusConfig.for_queue(settings.service_bus_video_transformation_queue_name)
         super().__init__(settings, "Video Transformation Service", config)
-        
+        # Thread pool for CPU-bound operations
+        self.thread_pool = ThreadPoolExecutor(max_workers=2)
     
     async def _initialize(self):
         """Initialize video generator specific resources"""
@@ -33,6 +36,25 @@ class VideoTransformation(BaseService):
             self.settings.cosmos_db_container_name
         )
     
+    def _transform_video_sync(self, avatar_path, background_path, output_path, position, size, pause_before, pause_after, crop_aspect_ratio):
+        """Synchronous video transformation to run in thread pool"""
+        transformer = VideoTransformer()
+        transformer.transform_video(
+            avatar_path=avatar_path,
+            background_path=background_path,
+            output_path=output_path,
+            position=position,
+            size=size,
+            pause_before=pause_before,
+            pause_after=pause_after,
+            crop_aspect_ratio=crop_aspect_ratio
+        )
+    
+    def _read_file_sync(self, file_path):
+        """Synchronous file reading to run in thread pool"""
+        with open(file_path, 'rb') as f:
+            return f.read()
+
     async def handle_message(self, message_data: Dict[str, Any]) -> None:
         """Handle video generation message"""
     
@@ -43,8 +65,6 @@ class VideoTransformation(BaseService):
             # Create VideoTransformation object
             video_message = VideoTransformationMessage(**message_data)
 
-
-        
             # Update Cosmos DB status to In Progress
             self.logger.info(f"Updating video generation status for PPT {video_message.ppt_id}, slide {video_message.index} to In Progress")
             await self._update_status(video_message, StatusEnum.PROCESSING)
@@ -82,21 +102,30 @@ class VideoTransformation(BaseService):
                 output_video_path = temp_output.name
                 temp_files.append(output_video_path)
 
-            # Transform the video
+            # Transform the video in a thread pool to avoid blocking the event loop
             self.logger.info(f"Transforming video for PPT {video_message.ppt_id}, slide {video_message.index}")
-            transformer = VideoTransformer()
-            transformer.transform_video(
-                avatar_path=avatar_video_path,
-                background_path=background_image_path,
-                output_path=output_video_path,
-                position=(video_message.avatar_position, "bottom"),
-                size=video_message.avatar_size,
-                crop_aspect_ratio=9/16
+            
+            # Run the CPU-intensive video transformation in a thread pool
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                self.thread_pool,
+                self._transform_video_sync,
+                avatar_video_path,
+                background_image_path,
+                output_video_path,
+                (video_message.avatar_position, "bottom"),
+                video_message.avatar_size,
+                video_message.pause_before,
+                video_message.pause_after,
+                9/16
             )
 
-            # Read the output video file as bytes
-            with open(output_video_path, 'rb') as f:
-                output_video_bytes = f.read()
+            # Read the output video file as bytes in thread pool
+            output_video_bytes = await loop.run_in_executor(
+                self.thread_pool,
+                self._read_file_sync,
+                output_video_path
+            )
 
             # Upload the transformed video to blob storage
             self.logger.info(f"Uploading transformed video for PPT {video_message.ppt_id}, slide {video_message.index}")
@@ -245,5 +274,7 @@ class VideoTransformation(BaseService):
                 await self.cosmos_db.close()
             if hasattr(self, 'credential'):
                 await self.credential.close()
+            if hasattr(self, 'thread_pool'):
+                self.thread_pool.shutdown(wait=True)
         except Exception as e:
             self.logger.error(f"Error during video generator cleanup: {str(e)}")

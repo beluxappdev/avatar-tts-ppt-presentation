@@ -5,8 +5,8 @@ import { useProcessingStatus } from '../hooks/useProcessingStatus';
 import { ProcessingStatus } from '../types/status';
 
 export const UploadStatusPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
 
   const {
@@ -114,7 +114,7 @@ export const UploadStatusPage: React.FC = () => {
   };
 
   const handleProceedToCustomization = () => {
-    navigate(`/powerpoint/${id}/customize`);
+    navigate(`/powerpoint/${id}`);
   };
 
   const getProgressSummary = () => {

@@ -79,6 +79,10 @@ class PowerPointParser:
                             notes_text = slide.notes_slide.notes_placeholder.text
                             has_notes = bool(notes_text.strip())  # Only set true if there's actual text content
                     
+                    if not has_notes:
+                        notes_text = "This is a default script"
+                        has_notes = True 
+
                     slide_info = {
                         "index": slide_index,
                         "notes_text": notes_text.strip() if notes_text else "",

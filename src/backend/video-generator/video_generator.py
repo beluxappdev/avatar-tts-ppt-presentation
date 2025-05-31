@@ -33,23 +33,45 @@ class VideoGeneratorService(BaseService):
             "default": {
                 "name": "lisa",
                 "style": "graceful-sitting",
-                "voice": "en-US-JennyNeural"
+                "voice_english": "en-US-JennyNeural",
+                "voice_french": "fr-FR-DeniseNeural",
             },
             "lisa": {
                 "name": "lisa",
                 "style": "graceful-sitting",
-                "voice": "en-US-JennyNeural"
+                "voice_english": "en-US-JennyNeural",
+                "voice_french": "fr-FR-DeniseNeural"
             },
             "meg": {
                 "name": "Meg",
                 "style": "business",
-                "voice": "en-US-JennyNeural"
+                "voice_english": "en-US-JennyNeural",
+                "voice_french": "fr-FR-VivienneMultilingualNeural"
             },
             "harry": {
                 "name": "harry",
                 "style": "business",
-                "voice": "en-US-BrandonMultilingualNeural"
-            }
+                "voice_english": "en-US-BrandonMultilingualNeural",
+                "voice_french": "fr-FR-HenriNeural"
+            },
+            "jeff": {
+                "name": "jeff",
+                "style": "business",
+                "voice_english": "en-US-AndrewMultilingualNeural",
+                "voice_french": "fr-FR-LucienMultilingualNeural"
+            },
+            "max": {
+                "name": "max",
+                "style": "business",
+                "voice_english": "en-US-AlloyTurboMultilingualNeural",
+                "voice_french": "fr-FR-RemyMultilingualNeural"
+            },
+            "lori": {
+                "name": "lori",
+                "style": "casual",
+                "voice_english": "en-US-AvaMultilingualNeural",
+                "voice_french": "fr-FR-BrigitteNeural",
+            },
         }
     
     async def _initialize(self):
@@ -82,7 +104,8 @@ class VideoGeneratorService(BaseService):
         avatar_config = {
             'avatar_persona': video_message.avatar_persona,
             'avatar_position': video_message.avatar_position,
-            'avatar_size': video_message.avatar_size
+            'avatar_size': video_message.avatar_size,
+            'language': video_message.language
         }
         
         # Submit synthesis job with retry logic
@@ -178,7 +201,7 @@ class VideoGeneratorService(BaseService):
         
         payload = {
             'synthesisConfig': {
-                "voice": avatar["voice"],
+                "voice": avatar[f"voice_{avatar_config.get('language', 'english').lower()}"],
             },
             'customVoices': {},
             "inputKind": "PlainText",
@@ -310,13 +333,18 @@ class VideoGeneratorService(BaseService):
                 avatar_persona=original_message.avatar_persona,
                 avatar_position=original_message.avatar_position,
                 avatar_size=original_message.avatar_size,
+                pause_before=original_message.pause_before,
+                pause_after=original_message.pause_after,
                 timestamp=original_message.timestamp
             )
+
+            transformation_message_dict = transformation_message.model_dump()
+            transformation_message_dict["id"] = str(uuid.uuid4())
             
             await self.service_bus.send_message(
                 destination_type="queue",
                 destination_name=self.settings.service_bus_video_transformation_queue_name,
-                message_data=transformation_message.model_dump()
+                message_data=transformation_message_dict
             )
             
             self.logger.info(f"Sent transformation message for PPT {original_message.ppt_id}, slide {original_message.index}")

@@ -3,7 +3,7 @@ import asyncio
 from typing import Dict, Any, Callable, Union
 import logging
 from azure.servicebus.aio import ServiceBusClient # type: ignore
-from azure.servicebus import ServiceBusMessage, ServiceBusReceivedMessage, AutoLockRenewer # type: ignore
+from azure.servicebus import ServiceBusMessage, ServiceBusReceivedMessage, ServiceBusReceiveMode # type: ignore
 from azure.identity.aio import DefaultAzureCredential # type: ignore
 from azure.core.exceptions import AzureError # type: ignore
 
@@ -104,22 +104,34 @@ class ServiceBusService:
                         )
                         
                         for msg in received_msgs:
-                            lock_renewal_task = None
                             try:
-                                # Renew the message lock periodically if required
                                 if use_lock_renewer:
+                                    # Run message processing and lock renewal concurrently
                                     lock_renewal_task = asyncio.create_task(
                                         self._renew_message_lock_periodically(receiver, msg)
                                     )
-
-                                # Call the message handler
-                                await message_handler(msg)
-
-                                if lock_renewal_task:
-                                    lock_renewal_task.cancel()  # Cancel the lock renewal task if message processed successfully
+                                    
+                                    # Create message handler task
+                                    handler_task = asyncio.create_task(message_handler(msg))
+                                    
+                                    try:
+                                        # Wait for message handler to complete
+                                        await handler_task
+                                        logger.info("Message processed successfully")
+                                    finally:
+                                        # Always cancel lock renewal when message processing is done
+                                        lock_renewal_task.cancel()
+                                        try:
+                                            await lock_renewal_task
+                                        except asyncio.CancelledError:
+                                            pass  # Expected when we cancel the task
+                                else:
+                                    # No lock renewal needed, just process the message
+                                    await message_handler(msg)
+                                    logger.info("Message processed successfully")
 
                                 await receiver.complete_message(msg)
-                                logger.info("Message processed and completed successfully")
+                                
                             except Exception as e:
                                 logger.error(f"Error processing message: {str(e)}")
                                 await receiver.abandon_message(msg)
@@ -145,7 +157,8 @@ class ServiceBusService:
         max_wait_time: int = 60,
         max_message_count: int = 1,
         retry_delay: int = 5,
-        use_lock_renewer: bool = False
+        use_lock_renewer: bool = False,
+        use_delete_receiver: bool = False
     ) -> None:
         """Listen to messages from a Service Bus subscription
         
@@ -158,10 +171,11 @@ class ServiceBusService:
             retry_delay: Delay between retries when errors occur (seconds)
         """
         client = await self._get_client()
-        
+        receive_mode = ServiceBusReceiveMode.RECEIVE_AND_DELETE if use_delete_receiver else ServiceBusReceiveMode.PEEK_LOCK
         def create_receiver():
             return client.get_subscription_receiver(
                 topic_name=topic_name,
+                receive_mode=receive_mode,
                 subscription_name=subscription_name,
                 max_wait_time=max_wait_time
             )
@@ -176,7 +190,8 @@ class ServiceBusService:
         max_wait_time: int = 60,
         max_message_count: int = 1,
         retry_delay: int = 5,
-        use_lock_renewer: bool = False
+        use_lock_renewer: bool = False,
+        use_delete_receiver: bool = False
     ) -> None:
         """Listen to messages from a Service Bus queue
         
@@ -188,10 +203,11 @@ class ServiceBusService:
             retry_delay: Delay between retries when errors occur (seconds)
         """
         client = await self._get_client()
-        
+        receive_mode = ServiceBusReceiveMode.RECEIVE_AND_DELETE if use_delete_receiver else ServiceBusReceiveMode.PEEK_LOCK
         def create_receiver():
             return client.get_queue_receiver(
                 queue_name=queue_name,
+                receive_mode=receive_mode,
                 max_wait_time=max_wait_time
             )
         
@@ -202,19 +218,21 @@ class ServiceBusService:
         """Periodically renew message lock during long processing"""
         try:
             while True:
-                await asyncio.sleep(30)  # Renew every 30 seconds
                 try:
                     await receiver.renew_message_lock(message)
                     logger.info(f"Message lock renewed successfully")
                 except Exception as e:
                     error_message = str(e).lower()
                     # Stop trying to renew if message has been settled or deleted
-                    if "deleted" in error_message or "settled" in error_message:
-                        logger.info(f"Message has been settled or deleted, stopping lock renewal: {e}")
+                    if "deleted" in error_message or "settled" in error_message or "expired" in error_message:
+                        logger.info(f"Message has been settled, deleted or expired, stopping lock renewal: {e}")
                         break
                     else:
                         logger.warning(f"Failed to renew message lock: {e}")
                         # Continue trying for other types of errors
+                finally:
+                    # Wait before renewing again
+                    await asyncio.sleep(20)
         except asyncio.CancelledError:
             logger.info("Lock renewal task cancelled")
             pass

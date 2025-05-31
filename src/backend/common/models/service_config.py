@@ -10,6 +10,11 @@ class ServiceConfig:
 
 class ServiceBusConfig:
     """Configuration for Service Bus source"""
+    max_wait_time: int = 60  # Default max wait time for message processing
+    max_message_count: int = 1  # Default max messages to process at once
+    retry_delay: int = 5  # Default delay between retries in seconds
+    use_lock_renewer: bool = True  # Whether to use lock renewer for long-running operations
+    use_delete_receiver: bool = False  # Whether to delete the message after receiving it
     
     @staticmethod
     def for_queue(queue_name: str) -> 'QueueConfig':

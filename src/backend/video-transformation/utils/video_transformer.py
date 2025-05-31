@@ -1,4 +1,4 @@
-from moviepy import VideoFileClip, ImageClip, CompositeVideoClip, vfx # type: ignore
+from moviepy import VideoFileClip, ImageClip, CompositeVideoClip, vfx, concatenate_videoclips # type: ignore
 from typing import Tuple, Union
 import os
 import logging
@@ -151,6 +151,43 @@ class VideoTransformer:
         self.avatar_video = self.avatar_video.with_position(position)
         self.logger.info(f"Positioned avatar at: {position}")
     
+    def add_pauses(self, pause_before: int = 0, pause_after: int = 0) -> None:
+        """
+        Add pause frames before and after the avatar video.
+        
+        Args:
+            pause_before: Seconds to pause on the first frame before video starts
+            pause_after: Seconds to pause on the last frame after video ends
+        """
+        if self.avatar_video is None:
+            raise ValueError("No avatar video loaded")
+        
+        clips_to_concatenate = []
+        
+        # Add pause before (first frame frozen)
+        if pause_before > 0:
+            first_frame = self.avatar_video.to_ImageClip(t=0, duration=pause_before)
+            # Preserve position and other properties
+            first_frame = first_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
+            clips_to_concatenate.append(first_frame)
+            self.logger.info(f"Added {pause_before}s pause before video")
+        
+        # Add the main video
+        clips_to_concatenate.append(self.avatar_video)
+        
+        # Add pause after (last frame frozen)
+        if pause_after > 0:
+            last_frame = self.avatar_video.to_ImageClip(t=self.avatar_video.duration-0.01, duration=pause_after)
+            # Preserve position and other properties
+            last_frame = last_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
+            clips_to_concatenate.append(last_frame)
+            self.logger.info(f"Added {pause_after}s pause after video")
+        
+        # Concatenate all clips
+        if len(clips_to_concatenate) > 1:
+            self.avatar_video = concatenate_videoclips(clips_to_concatenate, method="compose")
+            self.logger.info(f"Avatar video duration after pauses: {self.avatar_video.duration}s")
+    
     def compose_video(self) -> None:
         """
         Compose the final video by combining background and avatar.
@@ -159,6 +196,9 @@ class VideoTransformer:
             raise ValueError("No avatar video loaded")
         if self.background is None:
             raise ValueError("No background loaded")
+        
+        # Update background duration to match avatar (including pauses)
+        self.background = self.background.with_duration(self.avatar_video.duration)
         
         self.final_video = CompositeVideoClip([self.background, self.avatar_video])
         self.logger.info("Composed final video")
@@ -192,6 +232,8 @@ class VideoTransformer:
                        position: Union[Tuple[str, str], Tuple[int, int], str] = ("right", "bottom"),
                        size: Union[str, float] = "medium",
                        crop_aspect_ratio: float = None,
+                       pause_before: int = 0,
+                       pause_after: int = 0,
                        **save_kwargs) -> None:
         """
         Complete video transformation pipeline in one method.
@@ -203,6 +245,8 @@ class VideoTransformer:
             position: Position of the avatar on the background
             size: Size of the avatar ("small", "medium", "large", "full" or float multiplier)
             crop_aspect_ratio: Optional aspect ratio to crop to (e.g., 9/16 for vertical)
+            pause_before: Seconds to pause on first frame before video starts
+            pause_after: Seconds to pause on last frame after video ends
             **save_kwargs: Additional arguments passed to write_videofile()
         """
         try:
@@ -216,6 +260,10 @@ class VideoTransformer:
             
             self.resize_avatar(size)
             self.position_avatar(position)
+            
+            # Add pauses if specified
+            if pause_before > 0 or pause_after > 0:
+                self.add_pauses(pause_before, pause_after)
             
             # Compose and save
             self.compose_video()
@@ -256,7 +304,7 @@ class VideoTransformer:
 
 # Example usage
 if __name__ == "__main__":
-    # Example 1: Using the complete pipeline method
+    # Example with pauses: 2 seconds before, 3 seconds after
     transformer = VideoTransformer()
     transformer.transform_video(
         avatar_path="meg.webm",
@@ -264,5 +312,7 @@ if __name__ == "__main__":
         output_path="output.mp4",
         position=("left", "bottom"),
         size="medium",
-        crop_aspect_ratio=9/16
+        crop_aspect_ratio=9/16,
+        pause_before=2,  # 2 seconds pause showing first frame with avatar on background
+        pause_after=3    # 3 seconds pause showing last frame with avatar on background
     )

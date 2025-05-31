@@ -1,7 +1,7 @@
 import uuid
 import os
 import io
-from pptx import Presentation
+from pptx import Presentation # type: ignore
 from datetime import datetime
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Request, BackgroundTasks # type: ignore
 import logging
@@ -85,6 +85,11 @@ async def upload_powerpoint(
         
         # Get slide count for the initial record
         slide_count = get_slide_count_from_pptx(file_data)
+
+        if slide_count > 15:
+            raise FileValidationError(
+                "PowerPoint file exceeds the maximum allowed number of slides (15)."
+            )
         
         # Create PowerPoint model for Cosmos DB with initial status
         powerpoint_model = PowerPointModel(
@@ -198,7 +203,7 @@ async def process_powerpoint_background(
         # Update the record status to failed
         try:
             # Get current record and update status to failed
-            current_powerpoint = await cosmos_service.get_powerpoint_by_id(ppt_id)
+            current_powerpoint, _ = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
             current_powerpoint.blob_storage_status = StatusInformation(
                 status="Failed",
                 error_message=str(e),
@@ -345,6 +350,7 @@ async def generate_video_powerpoint(
         # Parse the video generation request
         ppt_id = video_request.ppt_id
         user_id = video_request.user_id
+        language = video_request.language
 
         logger.info(f"Received PowerPoint: {ppt_id} upload request from user: {user_id}")
         
@@ -386,11 +392,14 @@ async def generate_video_powerpoint(
                 user_id=user_id,
                 video_id=video_id,
                 index=slide.index,
+                language=language,
                 script=slide.script,
                 show_avatar=slide.avatar_config.show_avatar,
                 avatar_persona=slide.avatar_config.avatar_persona,
                 avatar_position=slide.avatar_config.avatar_position,
                 avatar_size=slide.avatar_config.avatar_size,
+                pause_before=slide.avatar_config.pause_before,
+                pause_after=slide.avatar_config.pause_after,
                 timestamp=datetime.utcnow()
             )
             logger.info(f"Sending video generation message for slide {slide.index} to Service Bus")
@@ -422,6 +431,82 @@ async def generate_video_powerpoint(
         
     except Exception as e:
         logger.error(f"Unexpected error during PowerPoint upload: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/powerpoint/{ppt_id}/video/{video_id}/user/{user_id}")
+async def get_powerpoint_video(
+    ppt_id: str,
+    video_id: str,
+    user_id: str,
+    request: Request
+) -> dict:
+    """
+    Retrieve a specific generated video for a PowerPoint presentation.
+
+    Args:
+        ppt_id: PowerPoint ID
+        video_id: Video ID
+        user_id: User ID (for authorization)
+        request: FastAPI request object to access app state
+
+    Returns:
+        JSON response containing the video URL with SAS token
+    """
+    try:
+        logger.info(f"Fetching video {video_id} for PowerPoint {ppt_id}, User: {user_id}")
+
+        # Get services from app state
+        cosmos_service = request.app.state.cosmos_service
+        blob_service = request.app.state.blob_service
+        settings = request.app.state.settings
+
+        # Verify PowerPoint exists in Cosmos DB
+        powerpoint_record, _ = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
+        if not powerpoint_record:
+            raise HTTPException(status_code=404, detail=f"PowerPoint with ID {ppt_id} not found")
+
+        # Verify video exists in PowerPoint record
+        video_info = next((video for video in powerpoint_record.video_information if video.video_id == video_id), None)
+        if not video_info:
+            raise HTTPException(status_code=404, detail=f"Video with ID {video_id} not found in PowerPoint {ppt_id}")
+        elif video_info.status.status != "Completed":
+            return {
+                "message": "Video generation is still in progress.",
+                "ppt_id": ppt_id,
+                "video_id": video_id,
+                "status": video_info.status.status,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+
+        # Construct blob path
+        video_blob_name = f"{ppt_id}/videos/{video_id}/final.mp4"
+
+        # Check if video exists in blob storage
+        if not await blob_service.file_exists(settings.blob_container_name, video_blob_name):
+            raise HTTPException(status_code=404, detail=f"Video file not found in storage for video ID {video_id}")
+
+        # Generate SAS URL for video
+        video_url_with_sas = await blob_service.get_blob_url_with_sas(
+            container_name=settings.blob_container_name,
+            blob_name=video_blob_name,
+            expiry_hours=24  # SAS token valid for 24 hours
+        )
+
+        logger.info(f"Successfully retrieved video URL for video {video_id}")
+
+        return {
+            "ppt_id": ppt_id,
+            "video_id": video_id,
+            "status": video_info.status.status,
+            "video_url": video_url_with_sas,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"Unexpected error fetching video {video_id} for PPT {ppt_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

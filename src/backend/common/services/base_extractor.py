@@ -38,6 +38,7 @@ class BaseExtractorService(BaseService):
         ppt_id = extraction_msg.ppt_id
         user_id = extraction_msg.user_id
         blob_url = extraction_msg.blob_url
+        file_name = extraction_msg.file_name
         
         self.logger.info(f"Processing PowerPoint {ppt_id} for user {user_id}")
         
@@ -45,8 +46,9 @@ class BaseExtractorService(BaseService):
             # Update status to processing
             await self._update_extraction_status(ppt_id, user_id, StatusEnum.PROCESSING)
             
+            blob_container = f"{self.settings.blob_container_name}/{ppt_id}"
             # Download PowerPoint file from blob storage
-            ppt_data = await self._download_powerpoint(blob_url)
+            ppt_data = await self.blob_service.download_file(blob_container, file_name)
             
             # Extract content using the specific extractor implementation
             slide_models = await self._extract_content(ppt_id, ppt_data)
@@ -68,33 +70,11 @@ class BaseExtractorService(BaseService):
             )
             raise
     
-    async def _download_powerpoint(self, blob_url: str) -> bytes:
-        """Download PowerPoint file from blob storage"""
-        try:
-            # Parse blob URL to get container and blob name
-            url_parts = blob_url.replace("https://", "").split("/", 2)
-            if len(url_parts) < 3:
-                raise BlobStorageError(f"Invalid blob URL format: {blob_url}")
-            
-            container_name = url_parts[1]
-            blob_name = url_parts[2]
-            
-            # Download the file
-            file_data = await self.blob_service.download_file(container_name, blob_name)
-            self.logger.info(f"Downloaded PowerPoint file: {blob_name}")
-            
-            return file_data
-            
-        except Exception as e:
-            error_msg = f"Failed to download PowerPoint from {blob_url}: {str(e)}"
-            self.logger.error(error_msg)
-            raise BlobStorageError(error_msg)
-    
     async def _update_extraction_status(self, ppt_id: str, user_id: str, status: StatusEnum, error_message: Optional[str] = None):
         """Update the extraction status in Cosmos DB"""
         try:
             # Get existing record or create new one
-            powerpoint, etag = await self.cosmos_service.get_powerpoint_record(ppt_id, user_id)
+            powerpoint, _  = await self.cosmos_service.get_powerpoint_record(ppt_id, user_id)
             
             if not powerpoint:
                 # Create new record

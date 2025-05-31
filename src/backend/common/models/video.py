@@ -8,6 +8,8 @@ class AvatarConfigModel(BaseModel):
     avatar_persona: str = Field(alias="avatarPersona")
     avatar_position: str = Field(alias="avatarPosition")
     avatar_size: str = Field(alias="avatarSize")
+    pause_before: int = Field(alias="pauseBefore", default=0)
+    pause_after: int = Field(alias="pauseAfter", default=0)
 
     class Config:
         populate_by_name = True
@@ -31,6 +33,7 @@ class VideoGenerationRequestModel(BaseModel):
     """Model for video generation request"""
     ppt_id: str = Field(alias="pptId")
     user_id: str = Field(alias="userId")
+    language: str = Field(default="english")
     slides_config: List[SlideVideoConfigModel] = Field(alias="slidesConfig")
 
     class Config:

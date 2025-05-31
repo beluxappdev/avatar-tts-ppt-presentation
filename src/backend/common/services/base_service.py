@@ -70,20 +70,22 @@ class BaseService(ABC):
                 await self.service_bus.listen_to_queue(
                     queue_name=self.service_bus_config.queue_name,
                     message_handler=self._handle_message_wrapper,
-                    max_wait_time=60,
-                    max_message_count=1,
-                    retry_delay=5,
-                    use_lock_renewer=True
+                    max_wait_time=self.service_bus_config.max_wait_time,
+                    max_message_count=self.service_bus_config.max_message_count,
+                    retry_delay=self.service_bus_config.retry_delay,
+                    use_lock_renewer=self.service_bus_config.use_lock_renewer,
+                    use_delete_receiver=self.service_bus_config.use_delete_receiver
                 )
             elif isinstance(self.service_bus_config, SubscriptionConfig):
                 await self.service_bus.listen_to_subscription(
                     topic_name=self.service_bus_config.topic_name,
                     subscription_name=self.service_bus_config.subscription_name,
                     message_handler=self._handle_message_wrapper,
-                    max_wait_time=60,
-                    max_message_count=1,
-                    retry_delay=5,
-                    use_lock_renewer=True
+                    max_wait_time=self.service_bus_config.max_wait_time,
+                    max_message_count=self.service_bus_config.max_message_count,
+                    retry_delay=self.service_bus_config.retry_delay,
+                    use_lock_renewer=self.service_bus_config.use_lock_renewer,
+                    use_delete_receiver=self.service_bus_config.use_delete_receiver
                 )
         except Exception as e:
             self.logger.error(f"Fatal error in message processing: {str(e)}")
@@ -133,12 +135,11 @@ class BaseService(ABC):
         pass
     
     @abstractmethod
-    async def handle_message(self, message_data: Dict[str, Any], raw_message: ServiceBusReceivedMessage) -> None:
+    async def handle_message(self, message_data: Dict[str, Any]) -> None:
         """Handle incoming Service Bus message - implemented by subclasses
         
         Args:
             message_data: Parsed message data as dictionary
-            raw_message: Original Service Bus message object
         """
         pass
     
