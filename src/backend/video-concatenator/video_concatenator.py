@@ -51,7 +51,6 @@ class VideoConcatenator(BaseService):
         self.cosmos_db = CosmosDBService(
             self.settings.cosmos_db_endpoint,
             self.settings.cosmos_db_database_name,
-            self.settings.cosmos_db_container_name
         )
     
     async def handle_message(self, message_data: Dict[str, Any]) -> None:

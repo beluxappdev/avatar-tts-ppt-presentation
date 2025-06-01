@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     # Azure Cosmos DB
     cosmos_db_endpoint: str
     cosmos_db_database_name: str
-    cosmos_db_container_name: str
+    cosmos_db_ppt_container_name: str
+    cosmos_db_user_container_name: str
 
     # Azure Speech
     speech_endpoint: str

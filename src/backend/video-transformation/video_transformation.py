@@ -33,7 +33,6 @@ class VideoTransformation(BaseService):
         self.cosmos_db = CosmosDBService(
             self.settings.cosmos_db_endpoint,
             self.settings.cosmos_db_database_name,
-            self.settings.cosmos_db_container_name
         )
     
     def _transform_video_sync(self, avatar_path, background_path, output_path, position, size, pause_before, pause_after, crop_aspect_ratio):

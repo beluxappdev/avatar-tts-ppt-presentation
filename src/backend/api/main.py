@@ -15,6 +15,7 @@ from common.utils.logging import setup_logging
 # Import routers
 from api.routes import powerpoint
 from api.routes import websocket
+from api.routes import user  # Add this import
 from api.websocket.manager import PowerPointProgressManager
 
 # Initialize settings
@@ -44,7 +45,6 @@ async def lifespan(app: FastAPI):
     cosmos_service = CosmosDBService(
         settings.cosmos_db_endpoint,
         settings.cosmos_db_database_name,
-        settings.cosmos_db_container_name
     )
     
     # Initialize WebSocket progress manager
@@ -102,6 +102,7 @@ app.add_middleware(
 
 # Include routers with /api prefix
 app.include_router(powerpoint.router, prefix="/api", tags=["PowerPoint"])
+app.include_router(user.router, prefix="/api", tags=["User"]) 
 app.include_router(websocket.router, prefix="/api", tags=["WebSocket"])
 
 @app.get("/health")

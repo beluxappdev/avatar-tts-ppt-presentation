@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Request, BackgroundTasks # type: ignore
 import logging
 
+from common.models.user import PowerPointSummary, VideoSummary
 from common.models.powerpoint import PowerPointModel, StatusInformation, VideoInformationModel, SlideVideoModel
 from common.models.video import VideoGenerationRequestModel
 from common.models.messages import ExtractionMessage, VideoGenerationMessage
@@ -73,6 +74,7 @@ async def upload_powerpoint(
         
         # Generate unique ID for this PowerPoint
         ppt_id = str(uuid.uuid4())
+        user_id = user_id.strip()
         
         # Read file data for validation
         file_data = await file.read()
@@ -103,10 +105,16 @@ async def upload_powerpoint(
             ),
             number_of_slides=slide_count
         )
+
+        powerpoint_summary = PowerPointSummary(
+            ppt_id=ppt_id,
+            filename=file.filename,
+        )
         
         # Create record in Cosmos DB immediately
         logger.info(f"Creating PowerPoint record in Cosmos DB: {ppt_id}")
         await cosmos_service.create_powerpoint_record(powerpoint_model)
+        await cosmos_service.create_powerpoint_summary(powerpoint_summary, user_id)
         
         # Add the blob upload and Service Bus messaging to background tasks
         background_tasks.add_task(
@@ -349,7 +357,7 @@ async def generate_video_powerpoint(
 
         # Parse the video generation request
         ppt_id = video_request.ppt_id
-        user_id = video_request.user_id
+        user_id = video_request.user_id.strip()
         language = video_request.language
 
         logger.info(f"Received PowerPoint: {ppt_id} upload request from user: {user_id}")
@@ -362,7 +370,7 @@ async def generate_video_powerpoint(
         # Generate unique ID for this Video generation request
         video_id = str(uuid.uuid4())
 
-        new_video_info = VideoInformationModel(
+        video_info = VideoInformationModel(
             video_id=video_id,
             status=StatusInformation(),
             total_slides=len(video_request.slides_config),
@@ -376,14 +384,19 @@ async def generate_video_powerpoint(
             )  for slide in video_request.slides_config],
         )
 
+        video_summary = VideoSummary(
+            video_id=video_id,
+        )
+
         # Get powerpoint record from Cosmos DB
         logger.info(f"Retrieving PowerPoint record from Cosmos DB: {ppt_id}")
-        powerpoint_record, etag = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
-        powerpoint_record.video_information.append(new_video_info)
+        powerpoint_record, _ = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
+        powerpoint_record.video_information.append(video_info)
 
         # Update the powerpoint with the new video information
         logger.info(f"Updating PowerPoint record in Cosmos DB with video info: {ppt_id}")
         await cosmos_service.update_powerpoint_record(powerpoint_record)
+        await cosmos_service.create_video_summary(video_summary, ppt_id, user_id)
 
         logger.info(f"Sending video generation messages to Service Bus for PPT: {ppt_id}")
         for slide in video_request.slides_config:
@@ -510,87 +523,8 @@ async def get_powerpoint_video(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/powerpoint/{ppt_id}/status")
-async def get_processing_status(request: Request, ppt_id: str, user_id: str) -> dict:
-    """
-    Get processing status for a PowerPoint
-    
-    Args:
-        request: FastAPI request object to access app state
-        ppt_id: PowerPoint ID
-        user_id: User ID (for authorization)
-        
-    Returns:
-        PowerPoint processing status
-    """
-    try:
-        logger.info(f"Getting status for PPT: {ppt_id}, User: {user_id}")
-        
-        # Get service from app state
-        cosmos_service = request.app.state.cosmos_service
-        
-        # Get PowerPoint record from Cosmos DB
-        powerpoint_record, etag = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
-        
-        if not powerpoint_record:
-            raise HTTPException(status_code=404, detail="PowerPoint not found")
-        
-        return powerpoint_record.model_dump(by_alias=True)
-        
-    except HTTPException:
-        raise
-        
-    except Exception as e:
-        logger.error(f"Error getting PowerPoint status: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@router.get("/powerpoint/{ppt_id}")
-async def get_powerpoint_details(request: Request, ppt_id: str, user_id: str) -> dict:
-    """
-    Get detailed PowerPoint information
-    
-    Args:
-        request: FastAPI request object to access app state
-        ppt_id: PowerPoint ID
-        user_id: User ID (for authorization)
-        
-    Returns:
-        PowerPoint details
-    """
-    try:
-        logger.info(f"Getting details for PPT: {ppt_id}, User: {user_id}")
-        
-        # Get service from app state
-        cosmos_service = request.app.state.cosmos_service
-        
-        # Get PowerPoint record from Cosmos DB
-        powerpoint_record, etag = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
-        
-        if not powerpoint_record:
-            raise HTTPException(status_code=404, detail="PowerPoint not found")
-        
-        return {
-            "ppt_id": powerpoint_record.id,
-            "user_id": powerpoint_record.user_id,
-            "file_name": powerpoint_record.file_name,
-            "blob_url": powerpoint_record.blob_url,
-            "created_at": powerpoint_record.created_at.isoformat() if powerpoint_record.created_at else None,
-            "blob_storage_status": powerpoint_record.blob_storage_status.model_dump() if powerpoint_record.blob_storage_status else None,
-            "processing_status": powerpoint_record.processing_status.model_dump() if powerpoint_record.processing_status else None,
-            "video_generation_status": powerpoint_record.video_generation_status.model_dump() if powerpoint_record.video_generation_status else None,
-        }
-        
-    except HTTPException:
-        raise
-        
-    except Exception as e:
-        logger.error(f"Error getting PowerPoint details: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
 @router.delete("/powerpoint/{ppt_id}")
-async def delete_powerpoint(request: Request, ppt_id: str, user_id: str) -> dict:
+async def delete_powerpoint(request: Request, ppt_id: str, user: dict) -> dict:
     """
     Delete a PowerPoint and its associated files
     
@@ -603,6 +537,7 @@ async def delete_powerpoint(request: Request, ppt_id: str, user_id: str) -> dict
         Deletion confirmation
     """
     try:
+        user_id = user.get("userId")
         logger.info(f"Deleting PPT: {ppt_id}, User: {user_id}")
         
         # Get services from app state
@@ -616,15 +551,16 @@ async def delete_powerpoint(request: Request, ppt_id: str, user_id: str) -> dict
         if not powerpoint_record:
             raise HTTPException(status_code=404, detail="PowerPoint not found")
         
-        # Delete the blob file
-        blob_name = f"{ppt_id}/{powerpoint_record.file_name}"
-        await blob_service.delete_file(
+        # Delete the blob folder
+        blob_name = f"{ppt_id}"
+        await blob_service.delete_folder(
             container_name=settings.blob_container_name,
-            blob_name=blob_name
+            folder_name=blob_name
         )
-        
-        # Note: You'll need to implement delete_powerpoint_record in your CosmosDBService
-        # await cosmos_service.delete_powerpoint_record(ppt_id, user_id)
+        logger.info(f"Deleted blob folder for PowerPoint: {ppt_id}")
+
+
+        await cosmos_service.delete_powerpoint_record(ppt_id, user_id)
         
         logger.info(f"PowerPoint deleted successfully: {ppt_id}")
         
@@ -639,6 +575,61 @@ async def delete_powerpoint(request: Request, ppt_id: str, user_id: str) -> dict
         
     except Exception as e:
         logger.error(f"Error deleting PowerPoint: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+# Delete request for video
+@router.delete("/powerpoint/{ppt_id}/video/{video_id}")
+async def delete_video(request: Request, ppt_id: str, video_id: str, user: dict) -> dict:
+    """
+    Delete a video from a PowerPoint presentation
+
+    Args:
+        request: FastAPI request object to access app state
+        ppt_id: PowerPoint ID
+        video_id: Video ID
+        user_id: User ID (for authorization)
+
+    Returns:
+        Deletion confirmation
+    """
+    try:
+        user_id = user.get("userId")
+        logger.info(f"Deleting video: {video_id}, PPT: {ppt_id}, User: {user_id}")
+
+        # Get services from app state
+        cosmos_service = request.app.state.cosmos_service
+        blob_service = request.app.state.blob_service
+        settings = request.app.state.settings
+
+        # Get PowerPoint record first to verify ownership
+        powerpoint_record = await cosmos_service.get_powerpoint_record(ppt_id, user_id)
+
+        if not powerpoint_record:
+            raise HTTPException(status_code=404, detail="PowerPoint not found")
+
+        # Delete the video blob
+        video_folder_name = f"{ppt_id}/videos/{video_id}"
+        await blob_service.delete_folder(
+            container_name=settings.blob_container_name,
+            folder_name=video_folder_name
+        )
+        logger.info(f"Deleted video blob for PowerPoint: {ppt_id}, Video: {video_id}")
+
+        await cosmos_service.delete_video(ppt_id, video_id, user_id)
+
+        logger.info(f"Video deleted successfully: {video_id} from PowerPoint: {ppt_id}")
+        return {
+            "message": "Video deleted successfully",
+            "ppt_id": ppt_id,
+            "video_id": video_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"Error deleting video: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 def get_slide_count_from_pptx(file_data: bytes) -> int:

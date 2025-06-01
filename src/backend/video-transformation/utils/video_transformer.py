@@ -168,7 +168,7 @@ class VideoTransformer:
         if pause_before > 0:
             first_frame = self.avatar_video.to_ImageClip(t=0, duration=pause_before)
             # Preserve position and other properties
-            first_frame = first_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
+            #first_frame = first_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
             clips_to_concatenate.append(first_frame)
             self.logger.info(f"Added {pause_before}s pause before video")
         
@@ -179,7 +179,7 @@ class VideoTransformer:
         if pause_after > 0:
             last_frame = self.avatar_video.to_ImageClip(t=self.avatar_video.duration-0.01, duration=pause_after)
             # Preserve position and other properties
-            last_frame = last_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
+            #last_frame = last_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
             clips_to_concatenate.append(last_frame)
             self.logger.info(f"Added {pause_after}s pause after video")
         

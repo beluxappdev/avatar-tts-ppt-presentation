@@ -112,6 +112,34 @@ class BlobStorageService:
             logger.error(f"Unexpected error checking file existence in blob storage: {e}")
             raise
 
+    async def delete_folder(self, container_name: str, folder_name: str) -> None:
+        """Delete all blobs under a virtual folder in a container.
+
+        Args:
+            container_name (str): The name of the container.
+            folder_name (str): The virtual folder path to delete (e.g., 'myfolder/').
+        """
+        try:
+            client = await self._get_client()
+            container_client = client.get_container_client(container_name)
+
+            # Ensure folder_name ends with a slash
+            if not folder_name.endswith('/'):
+                folder_name += '/'
+
+            # List all blobs with the given prefix
+            async for blob in container_client.list_blobs(name_starts_with=folder_name):
+                blob_client = container_client.get_blob_client(blob.name)
+                await blob_client.delete_blob()
+                logger.info(f"Deleted blob: {blob.name}")
+
+            logger.info(f"All blobs under folder '{folder_name}' in container '{container_name}' have been deleted.")
+
+        except AzureError as e:
+            logger.error(f"Azure error deleting folder '{folder_name}' in container '{container_name}': {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error deleting folder '{folder_name}' in container '{container_name}': {e}")
+
     async def get_blob_url_with_sas(self, container_name: str, blob_name: str, expiry_hours: int = 24) -> str:
         """ Generate a blob URL with SAS token for secure access
 
