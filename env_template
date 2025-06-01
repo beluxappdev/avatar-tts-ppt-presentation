@@ -1,12 +1,33 @@
-AzureAd__TenantId=your-tenant-id
-AzureAd__ClientId=your-client-id
-AzureAd__ClientSecret=your-client-secret
-AzureServices__CosmosDb__Endpoint=your-cosmosdb-endpoint
-AzureServices__CosmosDb__Database=your-cosmosdb-database
-AzureServices__CosmosDb__Container=your-cosmosdb-container
-AzureServices__BlobStorage__Endpoint=your-storage-endpoint
-AzureServices__BlobStorage__Container=your-container-name
-AzureServices__ServiceBus__Namespace=your-servicebus-namespace
-AzureServices__ServiceBus__Topic=your-servicebus-topic
-AzureServices__ServiceBus__Subscription__Image=your-servicebus-subscription-image
-AzureServices__ServiceBus__Subscription__Script=your-servicebus-subscription-script
+# Azure Identity
+AZURE_CLIENT_ID=
+AZURE_TENANT_ID=
+AZURE_CLIENT_SECRET=
+
+# Azure Storage Account
+STORAGE_ACCOUNT_NAME=
+BLOB_CONTAINER_NAME=
+
+# Azure Service Bus
+SERVICE_BUS_CONNECTION_STRING=
+SERVICE_BUS_NAMESPACE=
+SERVICE_BUS_TOPIC_NAME=
+SERVICE_BUS_IMAGE_SUBSCRIPTION_NAME=
+SERVICE_BUS_SCRIPT_SUBSCRIPTION_NAME=
+SERVICE_BUS_VIDEO_GENERATION_QUEUE_NAME=
+SERVICE_BUS_VIDEO_TRANSFORMATION_QUEUE_NAME=
+SERVICE_BUS_VIDEO_CONCATENATION_QUEUE_NAME=
+
+# Azure Cosmos DB
+COSMOS_DB_ENDPOINT=
+COSMOS_DB_KEY=
+COSMOS_DB_DATABASE_NAME=
+COSMOS_DB_PPT_CONTAINER_NAME=
+COSMOS_DB_USER_CONTAINER_NAME=
+
+# Azure Speech
+SPEECH_ENDPOINT=
+
+# API Settings
+API_HOST=0.0.0.0
+API_PORT=8000
+DEBUG=false

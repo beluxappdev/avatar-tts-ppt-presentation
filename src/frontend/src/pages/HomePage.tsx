@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUpload } from '../hooks/useUpload';
-import { FileUpload } from '../components//FileUpload/FileUpload';
+import { FileUpload } from '../components/FileUpload/FileUpload';
 import { Button } from '../components/common/Button';
 import { StatusMessage } from '../components/common/StatusMessage';
 

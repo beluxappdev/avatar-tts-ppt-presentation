@@ -8,44 +8,42 @@ services:
     environment:
       - DEBUG=true
     env_file:
-      - .env.local
+      - .env
   image-extractor:
     build:
       context: ./src/backend
       dockerfile: ./image-extractor/Dockerfile
     env_file:
-      - .env.local
+      - .env
   script-extractor:
     build:
       context: ./src/backend
       dockerfile: ./script-extractor/Dockerfile
     env_file:
-      - .env.local
+      - .env
   video-generator:
     build:
       context: ./src/backend
       dockerfile: ./video-generator/Dockerfile
     env_file:
-      - .env.local
+      - .env
   video-transformation:
     build:
       context: ./src/backend
       dockerfile: ./video-transformation/Dockerfile
     env_file:
-      - .env.local
+      - .env
   video-concatenator:
     build:
       context: ./src/backend
       dockerfile: ./video-concatenator/Dockerfile
     env_file:
-      - .env.local
-  # frontend:
-  #   build:
-  #     context: ./src/frontend/
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - api
-  #   environment:
-  #     - REACT_APP_API_URL=http://localhost:8000/api
+      - .env
+  frontend:
+    build:
+      context: ./src/frontend/
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api
