@@ -1,10 +1,49 @@
-version: '3.8'
 services:
-  ppt-api:
+  api:
     build:
-      context: ./src/api/
-      dockerfile: Dockerfile
+      context: ./src/backend/
+      dockerfile: ./api/Dockerfile
     ports:
-      - "8080:80"
+      - "8000:8000"
+    environment:
+      - DEBUG=true
     env_file:
       - .env
+  image-extractor:
+    build:
+      context: ./src/backend
+      dockerfile: ./image-extractor/Dockerfile
+    env_file:
+      - .env
+  script-extractor:
+    build:
+      context: ./src/backend
+      dockerfile: ./script-extractor/Dockerfile
+    env_file:
+      - .env
+  video-generator:
+    build:
+      context: ./src/backend
+      dockerfile: ./video-generator/Dockerfile
+    env_file:
+      - .env
+  video-transformation:
+    build:
+      context: ./src/backend
+      dockerfile: ./video-transformation/Dockerfile
+    env_file:
+      - .env
+  video-concatenator:
+    build:
+      context: ./src/backend
+      dockerfile: ./video-concatenator/Dockerfile
+    env_file:
+      - .env
+  frontend:
+    build:
+      context: ./src/frontend/
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api
