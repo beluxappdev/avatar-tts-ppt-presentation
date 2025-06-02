@@ -1,12 +1,13 @@
 import { Configuration, PopupRequest } from '@azure/msal-browser';
+import { API_BASE_URL } from './apiConfig';
 
 // MSAL configuration
 export const msalConfig: Configuration = {
     auth: {
-        clientId: 'fca495de-e9eb-4bb4-82f6-dbcaf9a9771e', // Replace with your App Registration's Application (client) ID
-        authority: 'https://login.microsoftonline.com/b9e00a12-182a-4f4e-849c-9ef81609b0d2', // Replace with your tenant ID
-        redirectUri: 'http://localhost:5173', // Adjust port if different
-        postLogoutRedirectUri: 'http://localhost:5173',
+        clientId: 'fca495de-e9eb-4bb4-82f6-dbcaf9a9771e',
+        authority: 'https://login.microsoftonline.com/common',
+        redirectUri: API_BASE_URL,
+        postLogoutRedirectUri: API_BASE_URL,
     },
     cache: {
         cacheLocation: 'sessionStorage', // This configures where your cache will be stored
