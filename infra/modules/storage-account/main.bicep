@@ -8,13 +8,13 @@ param tags object = {}
 param resourceToken string
 
 @description('The storage account name')
-param storageAccountName string = 'stavatartts'
+param storageAccountName string
 
 @description('The storage account SKU name')
-param storageAccountSkuName string = 'Standard_LRS'
+param storageAccountSkuName string
 
 @description('The name of the container that stores the PowerPoints in the storage account')
-param storageAccountPptsContainerName string = 'ppts'
+param storageAccountPptsContainerName string
 
 @description('Principal ID of the API managed identity for role assignments')
 param apiPrincipalId string
@@ -72,17 +72,7 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.19.0' = {
   }
 }
 
-// Module to retrieve storage account key
-module retrieveStKey './retrieve-st-key.bicep' = {
-  name: 'retrieve-st-key'
-  params: {
-    storageAccountResourceId: storageAccount.outputs.resourceId
-  }
-}
-
 // Outputs for use in other modules
 output storageAccountName string = storageAccount.outputs.name
 output storageAccountResourceId string = storageAccount.outputs.resourceId
 output primaryBlobEndpoint string = storageAccount.outputs.primaryBlobEndpoint
-@secure()
-output storageAccountKey string = retrieveStKey.outputs.STORAGE_ACCOUNT_KEY

@@ -41,6 +41,7 @@ param imageExtractorExists bool
 param scriptExtractorExists bool
 param uiExists bool
 param videoGeneratorExists bool
+param videoTransformationExists bool
 param videoConcatenatorExists bool
 
 @description('Environment variables for all container apps')
@@ -59,7 +60,7 @@ module containerAppsEnv 'environment.bicep' = {
 }
 
 // Create the API container app
-module apiApp 'api.bicep' = {
+module apiApp './api.bicep' = {
   name: 'api-container-app'
   params: {
     location: location
@@ -121,6 +122,7 @@ module videosApp 'videos.bicep' = {
     videosIdentityClientId: videosIdentityClientId
     applicationInsightsConnectionString: applicationInsightsConnectionString
     videoGeneratorExists: videoGeneratorExists
+    videoTransformationExists: videoTransformationExists
     videoConcatenatorExists: videoConcatenatorExists
     commonEnvVariables: commonEnvVariables
   }

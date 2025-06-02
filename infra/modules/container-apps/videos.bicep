@@ -19,16 +19,19 @@ param videosIdentityClientId string
 @description('Application Insights connection string')
 param applicationInsightsConnectionString string
 
-@description('Whether the image extractor container app already exists')
+@description('Whether the video generator container app already exists')
 param videoGeneratorExists bool
 
-@description('Whether the script extractor container app already exists')
+@description('Whether the video transformation container app already exists')
+param videoTransformationExists bool
+
+@description('Whether the video concatenator container app already exists')
 param videoConcatenatorExists bool
 
 @description('Environment variables for all container apps')
 param commonEnvVariables array = []
 
-// Fetch the latest image for the image extractor
+// Fetch the latest image for the video generator
 module videoGeneratorFetchLatestImage './fetch-container-image.bicep' = {
   name: 'video-fetch-generator'
   params: {
@@ -37,7 +40,16 @@ module videoGeneratorFetchLatestImage './fetch-container-image.bicep' = {
   }
 }
 
-// Fetch the latest image for the script extractor
+// Fetch the latest image for the video transformation
+module videoTransformationFetchLatestImage './fetch-container-image.bicep' = {
+  name: 'video-fetch-transformation'
+  params: {
+    exists: videoTransformationExists
+    name: 'video-transformation'
+  }
+}
+
+// Fetch the latest image for the video concatenator
 module videoConcatenatorFetchLatestImage './fetch-container-image.bicep' = {
   name: 'vide-fetch-concatenator'
   params: {
@@ -60,6 +72,56 @@ module videoGenerator 'br/public:avm/res/app/container-app:0.8.0' = {
     containers: [
       {
         image: videoGeneratorFetchLatestImage.outputs.?containers[?0].?image ?? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+        name: 'main'
+        resources: {
+          cpu: json('0.5')
+          memory: '1.0Gi'
+        }
+        env: concat([
+          {
+            name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+            value: applicationInsightsConnectionString
+          }
+          {
+            name: 'AZURE_CLIENT_ID'
+            value: videosIdentityClientId
+          }
+          {
+            name: 'AzureServices__ManagedIdentity__ClientId'
+            value: videosIdentityClientId
+          }
+        ], commonEnvVariables)
+      }
+    ]
+    managedIdentities: {
+      systemAssigned: false
+      userAssignedResourceIds: [videosIdentityId]
+    }
+    registries: [
+      {
+        server: containerRegistryLoginServer
+        identity: videosIdentityId
+      }
+    ]
+    environmentResourceId: environmentId
+    location: location
+    tags: union(tags, { 'azd-service-name': 'video-generator' })
+  }
+}
+
+module videoTransformation 'br/public:avm/res/app/container-app:0.8.0' = {
+  name: 'video-transformation'
+  params: {
+    name: 'video-transformation'
+    disableIngress: true
+    scaleMinReplicas: 1
+    scaleMaxReplicas: 10
+    secrets: {
+      secureList: []
+    }
+    containers: [
+      {
+        image: videoTransformationFetchLatestImage.outputs.?containers[?0].?image ?? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
         name: 'main'
         resources: {
           cpu: json('2')
@@ -93,7 +155,7 @@ module videoGenerator 'br/public:avm/res/app/container-app:0.8.0' = {
     ]
     environmentResourceId: environmentId
     location: location
-    tags: union(tags, { 'azd-service-name': 'video-generator' })
+    tags: union(tags, { 'azd-service-name': 'video-transformation' })
   }
 }
 

@@ -8,13 +8,16 @@ param tags object = {}
 param resourceToken string
 
 @description('Cosmos DB account name')
-param cosmosDbAccountName string = 'cosnoavatartts'
+param cosmosDbAccountName string
 
 @description('Cosmos DB database name')
-param cosmosDbDatabaseName string = 'avatar-tts'
+param cosmosDbDatabaseName string
 
-@description('Cosmos DB container name')
-param cosmosDbContainerName string = 'ppts_uploaded'
+@description('Cosmos DB powerpoints container name')
+param cosmosDbPptContainerName string
+
+@description('Cosmos DB users container name')
+param cosmosDbUserContainerName string
 
 @description('Principal ID of the API managed identity for role assignments')
 param apiPrincipalId string
@@ -78,9 +81,40 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.13.0' = {
         name: cosmosDbDatabaseName
         containers: [
           {
-            name: cosmosDbContainerName
+            name: cosmosDbPptContainerName
             paths: [
               '/userId'
+            ]
+            kind: 'Hash'
+            version: 2
+            indexingPolicy: {
+              indexingMode: 'consistent'
+              automatic: true
+              includedPaths: [
+                {
+                  path: '/*'
+                }
+              ]
+              excludedPaths: [
+                {
+                  path: '/"_etag"/?'
+                }
+              ]
+            }
+            conflictResolutionPolicy: {
+              mode: 'LastWriterWins'
+              conflictResolutionPath: '/_ts'
+            }
+          }
+        ]
+      }
+      {
+        name: cosmosDbUserContainerName
+        containers: [
+          {
+            name: cosmosDbPptContainerName
+            paths: [
+              '/id'
             ]
             kind: 'Hash'
             version: 2

@@ -10,22 +10,25 @@ param tags object = {}
 param resourceToken string
 
 @description('Service Bus namespace name')
-param serviceBusNamespaceName string = 'sbavatartts'
+param serviceBusNamespaceName string
 
 @description('Service Bus topic name')
-param serviceBusTopicName string = 'ppt-uploaded'
+param serviceBusTopicName string
 
 @description('Service Bus subscription name for image extractor')
-param serviceBusSubscriptionNameImage string = 'image-extractor'
+param serviceBusSubscriptionNameImage string
 
 @description('Service Bus subscription name for script extractor')
-param serviceBusSubscriptionNameScript string = 'script-extractor'
+param serviceBusSubscriptionNameScript string
 
 @description('The name of the service bus queue for the video generator')
-param serviceBusQueueVideoGeneratorName string = 'video-generator'
+param serviceBusQueueVideoGeneratorName string
+
+@description('The name of the service bus queue for the video transformation')
+param serviceBusQueueVideoTransformationName string
 
 @description('The name of the service bus queue for the video concatenator')
-param serviceBusQueueVideoConcatenatorName string = 'video-concatenator'
+param serviceBusQueueVideoConcatenatorName string
 
 @description('Principal ID of the API managed identity for role assignments')
 param apiPrincipalId string
@@ -87,6 +90,10 @@ module serviceBusNamespace 'br/public:avm/res/service-bus/namespace:0.14.1' = {
     queues: [
       {
         name: serviceBusQueueVideoGeneratorName
+        maxMessageSizeInKilobytes: 2048
+      }
+      {
+        name: serviceBusQueueVideoTransformationName
         maxMessageSizeInKilobytes: 2048
       }
       {
@@ -193,20 +200,14 @@ module serviceBusNamespace 'br/public:avm/res/service-bus/namespace:0.14.1' = {
   }
 }
 
-module retrieveSbConnectionString './retrieve-sb-connection-string.bicep' = {
-  name: 'retrieve-sb-connection-string'
-  params: {
-    serviceBusNamespaceResourceId: serviceBusNamespace.outputs.resourceId
-  }
-}
 
 // Outputs for use in other modules
 output serviceBusNamespaceName string = '${serviceBusNamespaceName}${resourceToken}'
 output serviceBusEndpoint string = '${serviceBusNamespaceName}${resourceToken}.servicebus.windows.net'
-output serviceBusConnectionString string = retrieveSbConnectionString.outputs.SERVICE_BUS_CONNECTION_STRING
 output resourceId string = serviceBusNamespace.outputs.resourceId
 output topicName string = serviceBusTopicName
 output imageSubscriptionName string = serviceBusSubscriptionNameImage
 output scriptSubscriptionName string = serviceBusSubscriptionNameScript
 output queueVideoGeneratorName string = serviceBusQueueVideoGeneratorName
+output queueVideoTransformationName string = serviceBusQueueVideoTransformationName
 output queueVideoConcatenatorName string = serviceBusQueueVideoConcatenatorName

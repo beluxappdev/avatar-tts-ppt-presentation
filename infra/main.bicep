@@ -30,6 +30,9 @@ param uiExists bool
 @description('Whether the video generator container app already exists')
 param videoGeneratorExists bool
 
+@description('Whether the video transformation container app already exists')
+param videoTransformationExists bool
+
 @description('Whether the video concatenator container app already exists')
 param videoConcatenatorExists bool
 
@@ -39,6 +42,7 @@ param speechServiceResourceId string
 @description('Tags that will be applied to all resources')
 param tags object = {
   'azd-env-name': environmentName
+  SecurityControl: 'Ignore'
 }
 
 /* ------------------------ User Assigned Identities ------------------------ */
@@ -74,8 +78,11 @@ param cosmosDbAccountName string = 'cosnoavatartts'
 @description('The name of the cosmos DB database')
 param cosmosDbDatabaseName string = 'avatar-tts'
 
-@description('The name of the cosmos DB container')
-param cosmosDbContainerName string = 'ppts_uploaded'
+@description('The name of the powerpoint cosmos DB container')
+param cosmosDbPptContainerName string = 'ppts'
+
+@description('The name of the script cosmos DB container')
+param cosmosDbUserContainerName string = 'users'
 
 /* ------------------------------- Service Bus ------------------------------ */
 
@@ -93,6 +100,9 @@ param serviceBusSubscriptionNameScript string = 'script-extractor'
 
 @description('The name of the service bus queue for the video generator')
 param serviceBusQueueVideoGeneratorName string = 'video-generator'
+
+@description('The name of the service bus queue for the video transformation')
+param serviceBusQueueVideoTransformationName string = 'video-transformation'
 
 @description('The name of the service bus queue for the video concatenator')
 param serviceBusQueueVideoConcatenatorName string = 'video-concatenator'
@@ -120,63 +130,59 @@ var env_variables = [
     name: 'AzureServices__Environment__Location'
     value: location
   }
-  // Cosmos DB Configuration
-  {
-    name: 'AzureServices__CosmosDb__Endpoint'
-    value: cosmosDb.outputs.endpoint
-  }
-  {
-    name: 'AzureServices__CosmosDb__Database'
-    value: cosmosDbDatabaseName
-  }
-  {
-    name: 'AzureServices__CosmosDb__Container'
-    value: cosmosDbContainerName
-  }
   // Blob Storage Configuration
   {
-    name: 'AzureServices__BlobStorage__Endpoint'
-    value: storage.outputs.primaryBlobEndpoint
-  }
-  {
-    name: 'AzureServices__BlobStorage__AccountName'
+    name: 'STORAGE_ACCOUNT_NAME'
     value: storage.outputs.storageAccountName
   }
   {
-    name: 'AzureServices__BlobStorage__Container'
+    name: 'BLOB_CONTAINER_NAME'
     value: storageAccountPptsContainerName
   }
+  // Cosmos DB Configuration
   {
-    name: 'AzureServices__BlobStorage__AccountKey'
-    value: storage.outputs.storageAccountKey
+    name: 'COSMOS_DB_ENDPOINT'
+    value: cosmosDb.outputs.endpoint
+  }
+  {
+    name: 'COSMOS_DB_DATABASE_NAME'
+    value: cosmosDbDatabaseName
+  }
+  {
+    name: 'COSMOS_DB_PPT_CONTAINER_NAME'
+    value: cosmosDbPptContainerName
+  }
+  {
+    name: 'COSMOS_DB_USER_CONTAINER_NAME'
+    value: cosmosDbUserContainerName
   }
   // Service Bus Configuration
   {
-    name: 'AzureServices__ServiceBus__ConnectionString'
-    value: serviceBus.outputs.serviceBusConnectionString
-  }
-  {
-    name: 'AzureServices__ServiceBus__Namespace'
+    name: 'SERVICE_BUS_NAMESPACE_NAME'
     value: serviceBus.outputs.serviceBusNamespaceName
   }
   {
-    name: 'AzureServices__ServiceBus__Topic'
+    name: 'SERVICE_BUS_TOPIC_NAME'
     value: serviceBus.outputs.topicName
   }
   {
-    name: 'AzureServices__ServiceBus__Subscription__Image'
+    name: 'SERVICE_BUS_IMAGE_SUBSCRIPTION_NAME'
     value: serviceBus.outputs.imageSubscriptionName
   }
   {
-    name: 'AzureServices__ServiceBus__Subscription__Script'
+    name: 'SERVICE_BUS_SCRIPT_SUBSCRIPTION_NAME'
     value: serviceBus.outputs.scriptSubscriptionName
   }
   {
-    name: 'AzureServices__ServiceBus__Queue__VideoGenerator'
+    name: 'SERVICE_BUS_VIDEO_GENERATION_QUEUE_NAME'
     value: serviceBus.outputs.queueVideoGeneratorName
   }
   {
-    name: 'AzureServices__ServiceBus__Queue__VideoConcatenator'
+    name: 'SERVICE_BUS_VIDEO_TRANSFORMATION_QUEUE_NAME'
+    value: serviceBus.outputs.queueVideoTransformationName
+  }
+  {
+    name: 'SERVICE_BUS_VIDEO_CONCATENATION_QUEUE_NAME'
     value: serviceBus.outputs.queueVideoConcatenatorName
   }
   {
@@ -264,7 +270,8 @@ module cosmosDb './modules/cosmos/main.bicep' = {
     resourceToken: resourceToken
     cosmosDbAccountName: cosmosDbAccountName
     cosmosDbDatabaseName: cosmosDbDatabaseName
-    cosmosDbContainerName: cosmosDbContainerName
+    cosmosDbPptContainerName: cosmosDbPptContainerName
+    cosmosDbUserContainerName: cosmosDbUserContainerName
     apiPrincipalId: identities.outputs.apiIdentityPrincipalId
     extractorsPrincipalId: identities.outputs.extractorsIdentityPrincipalId
     videosPrincipalId: identities.outputs.videosIdentityPrincipalId
@@ -283,6 +290,9 @@ module serviceBus './modules/service-bus/main.bicep' = {
     serviceBusTopicName: serviceBusTopicName
     serviceBusSubscriptionNameImage: serviceBusSubscriptionNameImage
     serviceBusSubscriptionNameScript: serviceBusSubscriptionNameScript
+    serviceBusQueueVideoGeneratorName: serviceBusQueueVideoGeneratorName
+    serviceBusQueueVideoTransformationName: serviceBusQueueVideoTransformationName
+    serviceBusQueueVideoConcatenatorName: serviceBusQueueVideoConcatenatorName
     apiPrincipalId: identities.outputs.apiIdentityPrincipalId
     extractorsPrincipalId: identities.outputs.extractorsIdentityPrincipalId
     videosPrincipalId: identities.outputs.videosIdentityPrincipalId
@@ -330,6 +340,7 @@ module containerApps './modules/container-apps/main.bicep' = {
     scriptExtractorExists: scriptExtractorExists
     uiExists: uiExists
     videoGeneratorExists: videoGeneratorExists
+    videoTransformationExists: videoTransformationExists
     videoConcatenatorExists: videoConcatenatorExists
     commonEnvVariables: env_variables
   }

@@ -5,16 +5,16 @@ param location string
 param tags object = {}
 
 @description('Name for the API user-assigned managed identity')
-param userAssignedIdentityApiName string = 'umidapi'
+param userAssignedIdentityApiName string
 
 @description('Name for the extractors user-assigned managed identity')
-param userAssignedIdentityExtractorsName string = 'umidextractors'
+param userAssignedIdentityExtractorsName string
 
 @description('Name for the UI user-assigned managed identity')
-param userAssignedIdentityUiName string = 'umidui'
+param userAssignedIdentityUiName string
 
 @description('Name for the videos user-assigned managed identity')
-param userAssignedIdentityVideosName string = 'umidvideos'
+param userAssignedIdentityVideosName string
 
 // Create the user-assigned managed identity for API
 module userAssignedIdentityApi 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
