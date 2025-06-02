@@ -11,46 +11,46 @@ param environmentId string
 param containerRegistryLoginServer string
 
 @description('User-assigned identity resource ID for the extractors')
-param extractorsIdentityId string
+param videosIdentityId string
 
 @description('User-assigned identity client ID for the extractors')
-param extractorsIdentityClientId string
+param videosIdentityClientId string
 
 @description('Application Insights connection string')
 param applicationInsightsConnectionString string
 
 @description('Whether the image extractor container app already exists')
-param imageExtractorExists bool
+param videoGeneratorExists bool
 
 @description('Whether the script extractor container app already exists')
-param scriptExtractorExists bool
+param videoConcatenatorExists bool
 
 @description('Environment variables for all container apps')
 param commonEnvVariables array = []
 
 // Fetch the latest image for the image extractor
-module imageExtractorFetchLatestImage './fetch-container-image.bicep' = {
-  name: 'extractor-fetch-image'
+module videoGeneratorFetchLatestImage './fetch-container-image.bicep' = {
+  name: 'video-fetch-generator'
   params: {
-    exists: imageExtractorExists
-    name: 'image-extractor'
+    exists: videoGeneratorExists
+    name: 'video-generator'
   }
 }
 
 // Fetch the latest image for the script extractor
-module scriptExtractorFetchLatestImage './fetch-container-image.bicep' = {
-  name: 'extractor-fetch-script'
+module videoConcatenatorFetchLatestImage './fetch-container-image.bicep' = {
+  name: 'vide-fetch-concatenator'
   params: {
-    exists: scriptExtractorExists
-    name: 'script-extractor'
+    exists: videoConcatenatorExists
+    name: 'video-concatenator'
   }
 }
 
 // Create the image extractor container app
-module imageExtractor 'br/public:avm/res/app/container-app:0.8.0' = {
-  name: 'image-extractor'
+module videoGenerator 'br/public:avm/res/app/container-app:0.8.0' = {
+  name: 'video-generator'
   params: {
-    name: 'image-extractor'
+    name: 'video-generator'
     disableIngress: true
     scaleMinReplicas: 1
     scaleMaxReplicas: 10
@@ -59,7 +59,7 @@ module imageExtractor 'br/public:avm/res/app/container-app:0.8.0' = {
     }
     containers: [
       {
-        image: imageExtractorFetchLatestImage.outputs.?containers[?0].?image ?? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+        image: videoGeneratorFetchLatestImage.outputs.?containers[?0].?image ?? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
         name: 'main'
         resources: {
           cpu: json('2')
@@ -72,40 +72,36 @@ module imageExtractor 'br/public:avm/res/app/container-app:0.8.0' = {
           }
           {
             name: 'AZURE_CLIENT_ID'
-            value: extractorsIdentityClientId
+            value: videosIdentityClientId
           }
           {
             name: 'AzureServices__ManagedIdentity__ClientId'
-            value: extractorsIdentityClientId
-          }
-          {
-            name: 'EXTRACTOR_TYPE'
-            value: 'image_extractor'
+            value: videosIdentityClientId
           }
         ], commonEnvVariables)
       }
     ]
     managedIdentities: {
       systemAssigned: false
-      userAssignedResourceIds: [extractorsIdentityId]
+      userAssignedResourceIds: [videosIdentityId]
     }
     registries: [
       {
         server: containerRegistryLoginServer
-        identity: extractorsIdentityId
+        identity: videosIdentityId
       }
     ]
     environmentResourceId: environmentId
     location: location
-    tags: union(tags, { 'azd-service-name': 'image-extractor' })
+    tags: union(tags, { 'azd-service-name': 'video-generator' })
   }
 }
 
 // Create the script extractor container app
-module scriptExtractor 'br/public:avm/res/app/container-app:0.8.0' = {
-  name: 'script-extractor'
+module videoConcatenator 'br/public:avm/res/app/container-app:0.8.0' = {
+  name: 'video-concatenator'
   params: {
-    name: 'script-extractor'
+    name: 'video-concatenator'
     disableIngress: true
     scaleMinReplicas: 1
     scaleMaxReplicas: 10
@@ -114,7 +110,7 @@ module scriptExtractor 'br/public:avm/res/app/container-app:0.8.0' = {
     }
     containers: [
       {
-        image: scriptExtractorFetchLatestImage.outputs.?containers[?0].?image ?? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+        image: videoConcatenatorFetchLatestImage.outputs.?containers[?0].?image ?? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
         name: 'main'
         resources: {
           cpu: json('0.5')
@@ -127,37 +123,33 @@ module scriptExtractor 'br/public:avm/res/app/container-app:0.8.0' = {
           }
           {
             name: 'AZURE_CLIENT_ID'
-            value: extractorsIdentityClientId
+            value: videosIdentityClientId
           }
           {
             name: 'AzureServices__ManagedIdentity__ClientId'
-            value: extractorsIdentityClientId
-          }
-          {
-            name: 'EXTRACTOR_TYPE'
-            value: 'script_extractor'
+            value: videosIdentityClientId
           }
         ], commonEnvVariables)
       }
     ]
     managedIdentities: {
       systemAssigned: false
-      userAssignedResourceIds: [extractorsIdentityId]
+      userAssignedResourceIds: [videosIdentityId]
     }
     registries: [
       {
         server: containerRegistryLoginServer
-        identity: extractorsIdentityId
+        identity: videosIdentityId
       }
     ]
     environmentResourceId: environmentId
     location: location
-    tags: union(tags, { 'azd-service-name': 'script-extractor' })
+    tags: union(tags, { 'azd-service-name': 'video-concatenator' })
   }
 }
 
 // Outputs for use in other modules
-output imageExtractorResourceId string = imageExtractor.outputs.resourceId
-output imageExtractorName string = imageExtractor.outputs.name
-output scriptExtractorResourceId string = scriptExtractor.outputs.resourceId
-output scriptExtractorName string = scriptExtractor.outputs.name
+output videoGeneratorResourceId string = videoGenerator.outputs.resourceId
+output videoGeneratorName string = videoGenerator.outputs.name
+output videoConcatenatorResourceId string = videoConcatenator.outputs.resourceId
+output videoConcatenatorName string = videoConcatenator.outputs.name

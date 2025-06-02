@@ -13,6 +13,9 @@ param userAssignedIdentityExtractorsName string = 'umidextractors'
 @description('Name for the UI user-assigned managed identity')
 param userAssignedIdentityUiName string = 'umidui'
 
+@description('Name for the videos user-assigned managed identity')
+param userAssignedIdentityVideosName string = 'umidvideos'
+
 // Create the user-assigned managed identity for API
 module userAssignedIdentityApi 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
   name: userAssignedIdentityApiName
@@ -43,6 +46,16 @@ module userAssignedIdentityUi 'br/public:avm/res/managed-identity/user-assigned-
   }
 }
 
+// Create the user-assigned managed identity for videos
+module userAssignedIdentityVideos 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
+  name: userAssignedIdentityVideosName
+  params: {
+    name: userAssignedIdentityVideosName
+    location: location
+    tags: tags
+  }
+}
+
 // Outputs for use in other modules
 output apiIdentityId string = userAssignedIdentityApi.outputs.resourceId
 output apiIdentityPrincipalId string = userAssignedIdentityApi.outputs.principalId
@@ -55,3 +68,7 @@ output extractorsIdentityClientId string = userAssignedIdentityExtractors.output
 output uiIdentityId string = userAssignedIdentityUi.outputs.resourceId
 output uiIdentityPrincipalId string = userAssignedIdentityUi.outputs.principalId
 output uiIdentityClientId string = userAssignedIdentityUi.outputs.clientId
+
+output videosIdentityId string = userAssignedIdentityVideos.outputs.resourceId
+output videosIdentityPrincipalId string = userAssignedIdentityVideos.outputs.principalId
+output videosIdentityClientId string = userAssignedIdentityVideos.outputs.clientId

@@ -77,3 +77,7 @@ Thumbs.db
 # PPT files
 *.ppt
 *.pptx
+
+.env.local
+
+.azure/

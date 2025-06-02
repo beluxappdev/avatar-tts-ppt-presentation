@@ -22,6 +22,9 @@ param apiPrincipalId string
 @description('Principal ID of the extractors managed identity for role assignments')
 param extractorsPrincipalId string
 
+@description('Principal ID of the videos managed identity for role assignments')
+param videosPrincipalId string
+
 // Create the Cosmos DB account
 module cosmosDb 'br/public:avm/res/document-db/database-account:0.13.0' = {
   name: cosmosDbAccountName
@@ -132,6 +135,19 @@ resource extractorsSqlRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlR
   properties: {
     roleDefinitionId: '${existingCosmosDbAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002' // Built-in Data Contributor
     principalId: extractorsPrincipalId
+    scope: existingCosmosDbAccount.id
+  }
+  dependsOn: [
+    cosmosDb
+  ]
+}
+
+resource videosSqlRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2023-11-15' = {
+  parent: existingCosmosDbAccount
+  name: '33333333-3333-3333-3333-333333333333' // Static GUID for extractors role
+  properties: {
+    roleDefinitionId: '${existingCosmosDbAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002' // Built-in Data Contributor
+    principalId: videosPrincipalId
     scope: existingCosmosDbAccount.id
   }
   dependsOn: [

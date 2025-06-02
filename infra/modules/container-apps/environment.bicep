@@ -28,4 +28,5 @@ module containerAppsEnvironment 'br/public:avm/res/app/managed-environment:0.4.5
 // Outputs for use in other modules
 output environmentId string = containerAppsEnvironment.outputs.resourceId
 output defaultDomain string = containerAppsEnvironment.outputs.defaultDomain
+output environmentName string = containerAppsEnvironment.outputs.name
 output name string = containerAppsEnvironment.outputs.name

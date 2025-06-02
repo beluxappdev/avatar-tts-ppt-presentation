@@ -28,6 +28,10 @@ param extractorsIdentityClientId string
 param uiIdentityId string
 param uiIdentityClientId string
 
+@description('Videos identity resource ID and client ID')
+param videosIdentityId string
+param videosIdentityClientId string
+
 @description('Application Insights connection string')
 param applicationInsightsConnectionString string
 
@@ -36,6 +40,8 @@ param apiExists bool
 param imageExtractorExists bool
 param scriptExtractorExists bool
 param uiExists bool
+param videoGeneratorExists bool
+param videoConcatenatorExists bool
 
 @description('Environment variables for all container apps')
 param commonEnvVariables array = []
@@ -94,11 +100,28 @@ module uiApp 'ui.bicep' = {
     tags: tags
     environmentId: containerAppsEnv.outputs.environmentId
     defaultDomain: containerAppsEnv.outputs.defaultDomain
+    containerAppsEnvironmentName: containerAppsEnv.outputs.environmentName
     containerRegistryLoginServer: containerRegistryLoginServer
     uiIdentityId: uiIdentityId
     uiIdentityClientId: uiIdentityClientId
     applicationInsightsConnectionString: applicationInsightsConnectionString
     uiExists: uiExists
+    commonEnvVariables: commonEnvVariables
+  }
+}
+
+module videosApp 'videos.bicep' = {
+  name: 'videos-container-app'
+  params: {
+    location: location
+    tags: tags
+    environmentId: containerAppsEnv.outputs.environmentId
+    containerRegistryLoginServer: containerRegistryLoginServer
+    videosIdentityId: videosIdentityId
+    videosIdentityClientId: videosIdentityClientId
+    applicationInsightsConnectionString: applicationInsightsConnectionString
+    videoGeneratorExists: videoGeneratorExists
+    videoConcatenatorExists: videoConcatenatorExists
     commonEnvVariables: commonEnvVariables
   }
 }

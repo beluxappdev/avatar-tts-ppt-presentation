@@ -42,15 +42,7 @@ module api 'br/public:avm/res/app/container-app:0.8.0' = {
   name: 'api'
   params: {
     name: 'api'
-    ingressTargetPort: 80
-    corsPolicy: {
-      allowedOrigins: [
-        'https://ui.${defaultDomain}'
-      ]
-      allowedMethods: [
-        '*'
-      ]
-    }
+    ingressExternal: true
     scaleMinReplicas: 1
     scaleMaxReplicas: 10
     secrets: {
@@ -76,10 +68,6 @@ module api 'br/public:avm/res/app/container-app:0.8.0' = {
           {
             name: 'AzureServices__ManagedIdentity__ClientId'
             value: apiIdentityClientId
-          }
-          {
-            name: 'PORT'
-            value: '80'
           }
         ], commonEnvVariables)
       }

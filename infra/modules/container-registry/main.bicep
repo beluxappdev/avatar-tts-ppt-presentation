@@ -19,6 +19,9 @@ param extractorsPrincipalId string
 @description('Principal ID of the UI managed identity for role assignments')
 param uiPrincipalId string
 
+@description('Principal ID of the videos managed identity for role assignments')
+param videosPrincipalId string
+
 // AcrPull role definition ID
 var acrPullRoleDefinitionId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 
@@ -43,6 +46,11 @@ module containerRegistry 'br/public:avm/res/container-registry/registry:0.1.1' =
       }
       {
         principalId: uiPrincipalId
+        principalType: 'ServicePrincipal'
+        roleDefinitionIdOrName: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleDefinitionId)
+      }
+      {
+        principalId: videosPrincipalId
         principalType: 'ServicePrincipal'
         roleDefinitionIdOrName: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleDefinitionId)
       }

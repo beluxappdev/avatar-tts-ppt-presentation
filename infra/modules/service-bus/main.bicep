@@ -21,11 +21,20 @@ param serviceBusSubscriptionNameImage string = 'image-extractor'
 @description('Service Bus subscription name for script extractor')
 param serviceBusSubscriptionNameScript string = 'script-extractor'
 
+@description('The name of the service bus queue for the video generator')
+param serviceBusQueueVideoGeneratorName string = 'video-generator'
+
+@description('The name of the service bus queue for the video concatenator')
+param serviceBusQueueVideoConcatenatorName string = 'video-concatenator'
+
 @description('Principal ID of the API managed identity for role assignments')
 param apiPrincipalId string
 
 @description('Principal ID of the extractors managed identity for role assignments')
 param extractorsPrincipalId string
+
+@description('Principal ID of the videos managed identity for role assignments')
+param videosPrincipalId string
 
 // Create Service Bus namespace and topics/subscriptions
 module serviceBusNamespace 'br/public:avm/res/service-bus/namespace:0.14.1' = {
@@ -72,6 +81,17 @@ module serviceBusNamespace 'br/public:avm/res/service-bus/namespace:0.14.1' = {
           'Manage'
           'Send'
         ]
+      }
+    ]
+
+    queues: [
+      {
+        name: serviceBusQueueVideoGeneratorName
+        maxMessageSizeInKilobytes: 2048
+      }
+      {
+        name: serviceBusQueueVideoConcatenatorName
+        maxMessageSizeInKilobytes: 2048
       }
     ]
     
@@ -159,14 +179,34 @@ module serviceBusNamespace 'br/public:avm/res/service-bus/namespace:0.14.1' = {
         principalType: 'ServicePrincipal'
         roleDefinitionIdOrName: 'Azure Service Bus Data Receiver'
       }
+      {
+        principalId: videosPrincipalId
+        principalType: 'ServicePrincipal'
+        roleDefinitionIdOrName: 'Azure Service Bus Data Sender'
+      }
+      {
+        principalId: videosPrincipalId
+        principalType: 'ServicePrincipal'
+        roleDefinitionIdOrName: 'Azure Service Bus Data Receiver'
+      }
     ]
+  }
+}
+
+module retrieveSbConnectionString './retrieve-sb-connection-string.bicep' = {
+  name: 'retrieve-sb-connection-string'
+  params: {
+    serviceBusNamespaceResourceId: serviceBusNamespace.outputs.resourceId
   }
 }
 
 // Outputs for use in other modules
 output serviceBusNamespaceName string = '${serviceBusNamespaceName}${resourceToken}'
 output serviceBusEndpoint string = '${serviceBusNamespaceName}${resourceToken}.servicebus.windows.net'
+output serviceBusConnectionString string = retrieveSbConnectionString.outputs.SERVICE_BUS_CONNECTION_STRING
 output resourceId string = serviceBusNamespace.outputs.resourceId
 output topicName string = serviceBusTopicName
 output imageSubscriptionName string = serviceBusSubscriptionNameImage
 output scriptSubscriptionName string = serviceBusSubscriptionNameScript
+output queueVideoGeneratorName string = serviceBusQueueVideoGeneratorName
+output queueVideoConcatenatorName string = serviceBusQueueVideoConcatenatorName

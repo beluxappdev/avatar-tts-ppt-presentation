@@ -27,6 +27,15 @@ param scriptExtractorExists bool
 @description('Whether the UI container app already exists')
 param uiExists bool
 
+@description('Whether the video generator container app already exists')
+param videoGeneratorExists bool
+
+@description('Whether the video concatenator container app already exists')
+param videoConcatenatorExists bool
+
+@description('The resource ID of the Speech Service')
+param speechServiceResourceId string
+
 @description('Tags that will be applied to all resources')
 param tags object = {
   'azd-env-name': environmentName
@@ -42,6 +51,9 @@ param userAssignedIdentityExtractorsName string = 'umidextractors'
 
 @description('UI user-assigned identity name')
 param userAssignedIdentityUiName string = 'umidui'
+
+@description('Video user-assigned identity name')
+param userAssignedIdentityVideosName string = 'umidvideos'
 
 /* ----------------------------- Storage Account ---------------------------- */
 
@@ -79,6 +91,12 @@ param serviceBusSubscriptionNameImage string = 'image-extractor'
 @description('The name of the subscription for the script extractor')
 param serviceBusSubscriptionNameScript string = 'script-extractor'
 
+@description('The name of the service bus queue for the video generator')
+param serviceBusQueueVideoGeneratorName string = 'video-generator'
+
+@description('The name of the service bus queue for the video concatenator')
+param serviceBusQueueVideoConcatenatorName string = 'video-concatenator'
+
 // ██    ██  █████  ██████  ██  █████  ██████  ██      ███████ ███████ 
 // ██    ██ ██   ██ ██   ██ ██ ██   ██ ██   ██ ██      ██      ██      
 // ██    ██ ███████ ██████  ██ ███████ ██████  ██      █████   ███████ 
@@ -89,6 +107,8 @@ var resourceToken = uniqueString(subscription().id, rg.id, location)
 
 // Load abbreviations from JSON file
 var abbrs = loadJsonContent('./abbreviations.json')
+
+var speechServiceResourceGroupName = split(speechServiceResourceId, '/')[4]
 
 // Common environment variables for container apps
 var env_variables = [
@@ -132,6 +152,10 @@ var env_variables = [
   }
   // Service Bus Configuration
   {
+    name: 'AzureServices__ServiceBus__ConnectionString'
+    value: serviceBus.outputs.serviceBusConnectionString
+  }
+  {
     name: 'AzureServices__ServiceBus__Namespace'
     value: serviceBus.outputs.serviceBusNamespaceName
   }
@@ -146,6 +170,18 @@ var env_variables = [
   {
     name: 'AzureServices__ServiceBus__Subscription__Script'
     value: serviceBus.outputs.scriptSubscriptionName
+  }
+  {
+    name: 'AzureServices__ServiceBus__Queue__VideoGenerator'
+    value: serviceBus.outputs.queueVideoGeneratorName
+  }
+  {
+    name: 'AzureServices__ServiceBus__Queue__VideoConcatenator'
+    value: serviceBus.outputs.queueVideoConcatenatorName
+  }
+  {
+    name: 'AzureServices__Speech__Endpoint'
+    value: 'https://my-ai-cdn.cognitiveservices.azure.com/'
   }
 ]
 
@@ -162,6 +198,10 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   tags: tags
 }
 
+resource rgSpeechService 'Microsoft.Resources/resourceGroups@2021-04-01' existing = {
+  name: speechServiceResourceGroupName
+}
+
 // 1. Deploy the identity module
 module identities './modules/identity/main.bicep' = {
   name: 'identities-deployment'
@@ -172,6 +212,16 @@ module identities './modules/identity/main.bicep' = {
     userAssignedIdentityApiName: userAssignedIdentityApiName
     userAssignedIdentityExtractorsName: userAssignedIdentityExtractorsName
     userAssignedIdentityUiName: userAssignedIdentityUiName
+    userAssignedIdentityVideosName: userAssignedIdentityVideosName
+  }
+}
+
+module assignSpeechRole './modules/identity/assign-speech-role.bicep' = {
+  name: 'assign-speech-role'
+  scope: rgSpeechService
+  params: {
+    speechServiceResourceId: speechServiceResourceId
+    videosPrincipalId: identities.outputs.videosIdentityPrincipalId
   }
 }
 
@@ -200,6 +250,7 @@ module storage './modules/storage-account/main.bicep' = {
     storageAccountPptsContainerName: storageAccountPptsContainerName
     apiPrincipalId: identities.outputs.apiIdentityPrincipalId
     extractorsPrincipalId: identities.outputs.extractorsIdentityPrincipalId
+    videosPrincipalId: identities.outputs.videosIdentityPrincipalId
   }
 }
 
@@ -216,6 +267,7 @@ module cosmosDb './modules/cosmos/main.bicep' = {
     cosmosDbContainerName: cosmosDbContainerName
     apiPrincipalId: identities.outputs.apiIdentityPrincipalId
     extractorsPrincipalId: identities.outputs.extractorsIdentityPrincipalId
+    videosPrincipalId: identities.outputs.videosIdentityPrincipalId
   }
 }
 
@@ -233,6 +285,7 @@ module serviceBus './modules/service-bus/main.bicep' = {
     serviceBusSubscriptionNameScript: serviceBusSubscriptionNameScript
     apiPrincipalId: identities.outputs.apiIdentityPrincipalId
     extractorsPrincipalId: identities.outputs.extractorsIdentityPrincipalId
+    videosPrincipalId: identities.outputs.videosIdentityPrincipalId
   }
 }
 
@@ -248,6 +301,7 @@ module registry './modules/container-registry/main.bicep' = {
     apiPrincipalId: identities.outputs.apiIdentityPrincipalId
     extractorsPrincipalId: identities.outputs.extractorsIdentityPrincipalId
     uiPrincipalId: identities.outputs.uiIdentityPrincipalId
+    videosPrincipalId: identities.outputs.videosIdentityPrincipalId
   }
 }
 
@@ -268,11 +322,15 @@ module containerApps './modules/container-apps/main.bicep' = {
     extractorsIdentityClientId: identities.outputs.extractorsIdentityClientId
     uiIdentityId: identities.outputs.uiIdentityId
     uiIdentityClientId: identities.outputs.uiIdentityClientId
+    videosIdentityId: identities.outputs.videosIdentityId
+    videosIdentityClientId: identities.outputs.videosIdentityClientId
     applicationInsightsConnectionString: monitoring.outputs.applicationInsightsConnectionString
     apiExists: apiExists
     imageExtractorExists: imageExtractorExists
     scriptExtractorExists: scriptExtractorExists
     uiExists: uiExists
+    videoGeneratorExists: videoGeneratorExists
+    videoConcatenatorExists: videoConcatenatorExists
     commonEnvVariables: env_variables
   }
 }
@@ -288,4 +346,4 @@ output AZURE_RESOURCE_API_ID string = containerApps.outputs.apiResourceId
 output AZURE_RESOURCE_EXTRACTOR_IMAGE string = containerApps.outputs.imageExtractorResourceId
 output AZURE_RESOURCE_EXTRACTOR_SCRIPT string = containerApps.outputs.scriptExtractorResourceId
 output AZURE_RESOURCE_UI_ID string = containerApps.outputs.uiResourceId
-
+output API_BASE_URL string = 'https://${containerApps.outputs.apiFqdn}'

@@ -22,6 +22,9 @@ param apiPrincipalId string
 @description('Principal ID of the extractors managed identity for role assignments')
 param extractorsPrincipalId string
 
+@description('Principal ID of the videos managed identity for role assignments')
+param videosPrincipalId string
+
 // Create the storage account
 module storageAccount 'br/public:avm/res/storage/storage-account:0.19.0' = {
   name: storageAccountName
@@ -57,6 +60,11 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.19.0' = {
       }
       {
         principalId: extractorsPrincipalId
+        principalType: 'ServicePrincipal'
+        roleDefinitionIdOrName: 'Storage Blob Data Contributor'
+      }
+      {
+        principalId: videosPrincipalId
         principalType: 'ServicePrincipal'
         roleDefinitionIdOrName: 'Storage Blob Data Contributor'
       }
