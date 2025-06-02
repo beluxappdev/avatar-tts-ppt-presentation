@@ -19,8 +19,11 @@ RUN pip install --no-cache-dir -r api/requirements.txt
 # Copy API code
 COPY ./api/ ./api/
 
-# Expose port
-EXPOSE 8000
+# Change to API directory
+WORKDIR /app/api
 
-# Run the API
-CMD ["python", "api/main.py"]
+# Expose the port that the app will run on
+EXPOSE 3100
+
+# Command to run the application using Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3100", "--workers", "4"]

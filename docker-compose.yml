@@ -4,7 +4,7 @@ services:
       context: ./src/backend/
       dockerfile: ./api/Dockerfile
     ports:
-      - "8000:8000"
+      - "8000:3100"
     environment:
       - DEBUG=true
     env_file:
@@ -46,4 +46,4 @@ services:
     ports:
       - "80:80"
     environment:
-      - VITE_API_BASE_URL=http://localhost:8000/api
+      - VITE_API_BASE_URL=http://localhost:8000

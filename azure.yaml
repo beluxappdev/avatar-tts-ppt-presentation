@@ -4,28 +4,69 @@ name: avatar-tts-ppt-presentation
 metadata:
     template: azd-init@1.15.0
 services:
-    api:
-        project: src/api
-        host: containerapp
-        language: dotnet
-        docker:
-            path: Dockerfile
-    image-extractor:
-        project: src/extractors
-        host: containerapp
-        language: python
-        docker:
-            path: Dockerfile
-    script-extractor:
-        project: src/extractors
-        host: containerapp
-        language: python
-        docker:
-            path: Dockerfile
     ui:
-        project: src/ui
+        project: src/frontend
         host: containerapp
         language: js
         dist: build
         docker:
             path: Dockerfile
+    api:
+        project: src/backend
+        host: containerapp
+        language: python
+        docker:
+            path: api/Dockerfile
+    image-extractor:
+        project: src/backend
+        host: containerapp
+        language: python
+        docker:
+            path: image-extractor/Dockerfile
+    script-extractor:
+        project: src/backend
+        host: containerapp
+        language: python
+        docker:
+            path: script-extractor/Dockerfile
+    video-generator:
+        project: src/backend
+        host: containerapp
+        language: python
+        docker:
+            path: video-generator/Dockerfile
+    video-transformation:
+        project: src/backend
+        host: containerapp
+        language: python
+        docker:
+            path: video-transformation/Dockerfile
+    video-concatenator:
+        project: src/backend
+        host: containerapp
+        language: python
+        docker:
+            path: video-concatenator/Dockerfile
+# using predeploy hook for web until
+# https://github.com/Azure/azure-dev/issues/3546 is fixed
+hooks:
+  # Creates a temporary `.env.local` file for the build command. Vite will automatically use it during build.
+  # The expected/required values are mapped to the infrastructure outputs.
+  # .env.local is ignored by git, so it will not be committed if, for any reason, if deployment fails.
+  # see: https://vitejs.dev/guide/env-and-mode
+  # Note: Notice that dotenv must be a project dependency for this to work. See package.json.
+  predeploy:
+    windows:
+      shell: pwsh
+      run: 'echo "VITE_API_BASE_URL=""$env:API_BASE_URL""" > ./src/frontend/.env'
+    posix:
+      shell: sh
+      run: 'echo VITE_API_BASE_URL=\"$API_BASE_URL\" > ./src/frontend/.env'    
+  # postdeploy:
+  #   windows:
+  #     shell: pwsh
+  #     run: 'rm ./src/frontend/.env'
+  #   posix:
+  #     shell: sh
+  #     run: 'rm ./src/frontend/.env'
+

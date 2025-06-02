@@ -106,13 +106,8 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.13.0' = {
               conflictResolutionPath: '/_ts'
             }
           }
-        ]
-      }
-      {
-        name: cosmosDbUserContainerName
-        containers: [
           {
-            name: cosmosDbPptContainerName
+            name: cosmosDbUserContainerName
             paths: [
               '/id'
             ]

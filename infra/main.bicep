@@ -158,7 +158,7 @@ var env_variables = [
   }
   // Service Bus Configuration
   {
-    name: 'SERVICE_BUS_NAMESPACE_NAME'
+    name: 'SERVICE_BUS_NAMESPACE'
     value: serviceBus.outputs.serviceBusNamespaceName
   }
   {
@@ -186,7 +186,7 @@ var env_variables = [
     value: serviceBus.outputs.queueVideoConcatenatorName
   }
   {
-    name: 'AzureServices__Speech__Endpoint'
+    name: 'SPEECH_ENDPOINT'
     value: 'https://my-ai-cdn.cognitiveservices.azure.com/'
   }
 ]

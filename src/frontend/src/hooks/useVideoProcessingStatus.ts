@@ -53,7 +53,7 @@ export const useVideoProcessingStatus = ({
   }, []);
 
   // Construct video-specific WebSocket URL
-  const wsUrl = `ws://${API_BASE_URL.replace('http://', '').replace('https://', '')}/api/ws/powerpoint/${presentationId}/video/${videoId}/user/${userId}`;
+  const wsUrl = `wss://${API_BASE_URL.replace('http://', '').replace('https://', '')}/api/ws/powerpoint/${presentationId}/video/${videoId}/user/${userId}`;
 
   const { isConnected, connectionError } = useWebSocket({
     url: wsUrl,

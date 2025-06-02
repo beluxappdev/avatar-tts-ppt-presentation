@@ -23,6 +23,9 @@
       "videoGeneratorExists": {
         "value": "${SERVICE_VIDEO_GENERATOR_RESOURCE_EXISTS=false}"
       },
+      "videoTransformationExists": {
+        "value": "${SERVICE_VIDEO_TRANSFORMATION_RESOURCE_EXISTS=false}"
+      },
       "videoConcatenatorExists": {
         "value": "${SERVICE_VIDEO_CONCATENATOR_RESOURCE_EXISTS=false}"
       },
@@ -30,7 +33,7 @@
         "value": "${AZURE_PRINCIPAL_ID}"
       },
       "speechServiceResourceId": {
-        "value": "${AZURE_SPEECH_SERVICE_RESOURCE_ID=/subscriptions/3b9c6376-091d-440b-910e-14229bc72415/resourceGroups/openai/providers/Microsoft.CognitiveServices/accounts/codeandcoffee-speech-service}"
+        "value": "${AZURE_SPEECH_SERVICE_RESOURCE_ID"
       }
     }
 }
