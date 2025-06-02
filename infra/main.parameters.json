@@ -33,7 +33,7 @@
         "value": "${AZURE_PRINCIPAL_ID}"
       },
       "speechServiceResourceId": {
-        "value": "${AZURE_SPEECH_SERVICE_RESOURCE_ID"
+        "value": "${AZURE_SPEECH_SERVICE_RESOURCE_ID}"
       }
     }
 }
