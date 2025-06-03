@@ -69,6 +69,37 @@ export const HomePage: React.FC = () => {
           padding: '2rem',
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
         }}>
+          {/* File Requirements Notice */}
+          <div style={{
+            backgroundColor: '#f1f5f9',
+            border: '1px solid #cbd5e1',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h3 style={{
+              margin: '0 0 0.5rem 0',
+              color: '#475569',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }}>
+              File Requirements
+            </h3>
+            <ul style={{
+              margin: 0,
+              paddingLeft: '1.25rem',
+              color: '#64748b',
+              fontSize: '0.875rem',
+              lineHeight: '1.5'
+            }}>
+              <li>Maximum file size: <strong>100 MB</strong></li>
+              <li>Maximum slides: <strong>15 slides</strong></li>
+              <li>Supported format: PowerPoint (.pptx)</li>
+            </ul>
+          </div>
+
           <FileUpload
             onFileSelect={handleFileSelect}
             selectedFile={selectedFile}
