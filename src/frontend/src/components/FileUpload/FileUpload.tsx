@@ -14,7 +14,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   selectedFile,
   onRemoveFile,
   accept = '.pptx,.ppt',
-  maxSizeMB = 50,
+  maxSizeMB = 100,
   isUploading = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);

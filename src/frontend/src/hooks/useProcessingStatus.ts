@@ -59,7 +59,7 @@ export const useProcessingStatus = ({ presentationId, userId }: UseProcessingSta
   }, []);
 
   // Construct WebSocket URL
-  const wsUrl = `ws://${API_BASE_URL.replace('http://', '').replace('https://', '')}/api/ws/powerpoint/${presentationId}/user/${userId}`;
+  const wsUrl = `wss://${API_BASE_URL.replace('http://', '').replace('https://', '')}/api/ws/powerpoint/${presentationId}/user/${userId}`;
 
   const { isConnected, connectionError } = useWebSocket({
     url: wsUrl,

@@ -1,13 +1,14 @@
 import { Configuration, PopupRequest } from '@azure/msal-browser';
-import { API_BASE_URL } from './apiConfig';
+console.log('window.location.origin:', window.location.origin);
+console.log('window.location.href:', window.location.href);
 
 // MSAL configuration
 export const msalConfig: Configuration = {
     auth: {
         clientId: 'fca495de-e9eb-4bb4-82f6-dbcaf9a9771e',
         authority: 'https://login.microsoftonline.com/common',
-        redirectUri: API_BASE_URL,
-        postLogoutRedirectUri: API_BASE_URL,
+        redirectUri: window.location.origin, // This is the base URL of your application
+        postLogoutRedirectUri: window.location.origin,
     },
     cache: {
         cacheLocation: 'sessionStorage', // This configures where your cache will be stored

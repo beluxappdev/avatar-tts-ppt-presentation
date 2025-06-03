@@ -1,0 +1,39 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "environmentName": {
+        "value": "${AZURE_ENV_NAME}"
+      },
+      "location": {
+        "value": "${AZURE_LOCATION}"
+      },
+      "apiExists": {
+        "value": "${SERVICE_API_RESOURCE_EXISTS=false}"
+      },
+      "imageExtractorExists": {
+        "value": "${SERVICE_IMAGE_EXTRACTOR_RESOURCE_EXISTS=false}"
+      },
+      "scriptExtractorExists": {
+        "value": "${SERVICE_SCRIPT_EXTRACTOR_RESOURCE_EXISTS=false}"
+      },
+      "uiExists": {
+        "value": "${SERVICE_UI_RESOURCE_EXISTS=false}"
+      },
+      "videoGeneratorExists": {
+        "value": "${SERVICE_VIDEO_GENERATOR_RESOURCE_EXISTS=false}"
+      },
+      "videoTransformationExists": {
+        "value": "${SERVICE_VIDEO_TRANSFORMATION_RESOURCE_EXISTS=false}"
+      },
+      "videoConcatenatorExists": {
+        "value": "${SERVICE_VIDEO_CONCATENATOR_RESOURCE_EXISTS=false}"
+      },
+      "principalId": {
+        "value": "${AZURE_PRINCIPAL_ID}"
+      },
+      "speechServiceResourceId": {
+        "value": "${AZURE_SPEECH_SERVICE_RESOURCE_ID}"
+      }
+    }
+}

@@ -1,6 +1,7 @@
 import { AccountInfo, IPublicClientApplication } from '@azure/msal-browser';
 import { User } from '../types/user';
 import { API_BASE_URL } from '../config/apiConfig';
+console.log('API_BASE_URL:', API_BASE_URL);
 
 export class AuthService {
     private msalInstance: IPublicClientApplication;
