@@ -28,6 +28,10 @@ class VideoGeneratorService(BaseService):
         self.max_delay = 300.0
         self.jitter_range = 0.1
         
+        # Message retry configuration
+        self.max_message_retries = 3  # Maximum number of times to retry a failed message
+        self.retry_delay_seconds = 10 # 10 seconds delay before retry
+        
         # Avatar configuration mapping
         self.avatar_mapping = {
             "default": {
@@ -83,50 +87,127 @@ class VideoGeneratorService(BaseService):
         )
     
     async def handle_message(self, message_data: Dict[str, Any]) -> None:
-        """Handle video generation message"""
+        """Handle video generation message with retry logic"""
         # Create VideoGenerationMessage object
         video_message = VideoGenerationMessage(**message_data)
         
-        # Update Cosmos DB status to In Progress
-        self.logger.info(f"Updating video generation status for PPT {video_message.ppt_id}, slide {video_message.index} to In Progress")
-        await self._update_status(video_message, StatusEnum.PROCESSING)
+        # Get retry count from message (default to 0 if not present)
+        retry_count = message_data.get('retry_count', 0)
         
-        # Skip processing if avatar should not be shown
-        if not video_message.show_avatar:
-            self.logger.info(f"Skipping video generation for PPT {video_message.ppt_id}, slide {video_message.index} - ShowAvatar is False")
-            return
-        
-        # Generate unique job ID for Azure Speech API
-        azure_job_id = str(uuid.uuid4())
-        
-        # Create avatar configuration dictionary
-        avatar_config = {
-            'avatar_persona': video_message.avatar_persona,
-            'avatar_position': video_message.avatar_position,
-            'avatar_size': video_message.avatar_size,
-            'language': video_message.language
-        }
-        
-        # Submit synthesis job with retry logic
-        success = await self.submit_synthesis_job(azure_job_id, video_message.script, avatar_config)
-        
-        if not success:
-            self.logger.error(f"Failed to submit synthesis job for PPT {video_message.ppt_id}, slide {video_message.index}")
-            await self._update_status(video_message, StatusEnum.FAILED)
-            return
-        
-        # Wait for completion
-        status, download_url = await self.wait_for_completion(azure_job_id)
-        
-        if status == 'Succeeded' and download_url:
-            self.logger.info(f"Video generated successfully for PPT {video_message.ppt_id}, slide {video_message.index}: {download_url}")
-            await self._update_status(video_message, StatusEnum.COMPLETED, 'generation_status')
+        try:
+            # Update Cosmos DB status to In Progress
+            self.logger.info(f"Processing video generation for PPT {video_message.ppt_id}, slide {video_message.index} (attempt {retry_count + 1})")
+            await self._update_status(video_message, StatusEnum.PROCESSING)
             
-            # Send message to transformation queue
-            await self.send_transformation_message(video_message, download_url)
+            # Skip processing if avatar should not be shown
+            if not video_message.show_avatar:
+                self.logger.info(f"Skipping video generation for PPT {video_message.ppt_id}, slide {video_message.index} - ShowAvatar is False")
+                return
+            
+            # Generate unique job ID for Azure Speech API
+            azure_job_id = str(uuid.uuid4())
+            
+            # Create avatar configuration dictionary
+            avatar_config = {
+                'avatar_persona': video_message.avatar_persona,
+                'avatar_position': video_message.avatar_position,
+                'avatar_size': video_message.avatar_size,
+                'language': video_message.language
+            }
+            
+            # Submit synthesis job with retry logic
+            success = await self.submit_synthesis_job(azure_job_id, video_message.script, avatar_config)
+            
+            if not success:
+                self.logger.error(f"Failed to submit synthesis job for PPT {video_message.ppt_id}, slide {video_message.index}")
+                await self._handle_processing_failure(message_data, retry_count, "Failed to submit synthesis job")
+                return
+            
+            # Wait for completion
+            status, download_url = await self.wait_for_completion(azure_job_id)
+            
+            if status == 'Succeeded' and download_url:
+                self.logger.info(f"Video generated successfully for PPT {video_message.ppt_id}, slide {video_message.index}: {download_url}")
+                await self._update_status(video_message, StatusEnum.COMPLETED, 'generation_status')
+                
+                # Send message to transformation queue
+                await self.send_transformation_message(video_message, download_url)
+            else:
+                error_msg = f"Video generation failed with status: {status}"
+                self.logger.error(f"Failed to generate video for PPT {video_message.ppt_id}, slide {video_message.index}, status: {status}")
+                await self._handle_processing_failure(message_data, retry_count, error_msg)
+                
+        except Exception as e:
+            error_msg = f"Unexpected error during video generation: {str(e)}"
+            self.logger.error(f"Error processing video generation for PPT {video_message.ppt_id}, slide {video_message.index}: {str(e)}")
+            await self._handle_processing_failure(message_data, retry_count, error_msg)
+            # Re-raise the exception to trigger message abandonment
+            raise
+    
+    async def _handle_processing_failure(self, original_message_data: Dict[str, Any], retry_count: int, error_msg: str):
+        """Handle processing failure with retry logic"""
+        video_message = VideoGenerationMessage(**original_message_data)
+        
+        if retry_count < self.max_message_retries:
+            # Schedule retry
+            await self._schedule_retry(original_message_data, retry_count + 1, error_msg)
         else:
-            self.logger.error(f"Failed to generate video for PPT {video_message.ppt_id}, slide {video_message.index}, status: {status}")
+            # Max retries reached, mark as permanently failed
+            self.logger.error(f"Max retries ({self.max_message_retries}) reached for PPT {video_message.ppt_id}, slide {video_message.index}. Marking as permanently failed.")
             await self._update_status(video_message, StatusEnum.FAILED)
+    
+    async def _schedule_retry(self, original_message_data: Dict[str, Any], retry_count: int, error_msg: str):
+        """Schedule a retry by sending the message back to the queue with delay"""
+        try:
+            video_message = VideoGenerationMessage(**original_message_data)
+            
+            # Create retry message with updated retry count and timestamp
+            retry_message_data = original_message_data.copy()
+            retry_message_data['retry_count'] = retry_count
+            retry_message_data['last_error'] = error_msg
+            retry_message_data['retry_scheduled_at'] = time.time()
+            retry_message_data['id'] = str(uuid.uuid4())  # New message ID
+            
+            # Calculate delay (you can implement more sophisticated backoff here)
+            delay_seconds = self.retry_delay_seconds * retry_count  # Linear backoff
+            
+            self.logger.info(f"Scheduling retry {retry_count} for PPT {video_message.ppt_id}, slide {video_message.index} in {delay_seconds} seconds")
+            
+            # Option 1: Use Azure Service Bus scheduled messages (preferred)
+            if hasattr(self.service_bus, 'schedule_message'):
+                scheduled_time = time.time() + delay_seconds
+                await self.service_bus.schedule_message(
+                    destination_type="queue",
+                    destination_name=self.settings.service_bus_video_generation_queue_name,
+                    message_data=retry_message_data,
+                    scheduled_enqueue_time=scheduled_time
+                )
+            else:
+                # Option 2: Use asyncio delay (simpler but less reliable)
+                asyncio.create_task(self._delayed_retry(retry_message_data, delay_seconds))
+                
+        except Exception as e:
+            self.logger.error(f"Failed to schedule retry: {str(e)}")
+            # If retry scheduling fails, mark as failed
+            video_message = VideoGenerationMessage(**original_message_data)
+            await self._update_status(video_message, StatusEnum.FAILED)
+    
+    async def _delayed_retry(self, message_data: Dict[str, Any], delay_seconds: int):
+        """Send retry message after delay (fallback method)"""
+        try:
+            await asyncio.sleep(delay_seconds)
+            
+            await self.service_bus.send_message(
+                destination_type="queue",
+                destination_name=self.settings.service_bus_video_generation_queue_name,
+                message_data=message_data
+            )
+            
+            video_message = VideoGenerationMessage(**message_data)
+            self.logger.info(f"Retry message sent for PPT {video_message.ppt_id}, slide {video_message.index}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to send retry message: {str(e)}")
     
     async def _update_status(self, video_message: VideoGenerationMessage, status: StatusEnum, status_type: str = 'both'):
         """Update video generation status in Cosmos DB"""

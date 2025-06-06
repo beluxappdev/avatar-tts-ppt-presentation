@@ -16,6 +16,9 @@ param logAnalyticsWorkspaceResourceId string
 @description('Container Registry login server')
 param containerRegistryLoginServer string
 
+@description('Speech Service endpoint for the video container apps')
+param speechServiceEndpoint string
+
 @description('API identity resource ID and client ID')
 param apiIdentityId string
 param apiIdentityClientId string
@@ -118,6 +121,7 @@ module videosApp 'videos.bicep' = {
     tags: tags
     environmentId: containerAppsEnv.outputs.environmentId
     containerRegistryLoginServer: containerRegistryLoginServer
+    speechServiceEndpoint: speechServiceEndpoint
     videosIdentityId: videosIdentityId
     videosIdentityClientId: videosIdentityClientId
     applicationInsightsConnectionString: applicationInsightsConnectionString

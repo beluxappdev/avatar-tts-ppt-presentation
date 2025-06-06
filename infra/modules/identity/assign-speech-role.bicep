@@ -1,33 +1,25 @@
 targetScope = 'resourceGroup'
 
 @description('The resource ID of the Speech Service')
-param speechServiceResourceId string
+param speechServiceResourceIds string[]
 
 @description('The principal ID of the videos managed identity')
 param videosPrincipalId string
 
-@description('Generate a unique name for the role assignment')
-var roleAssignmentName = guid(speechServiceResourceId, videosPrincipalId, 'f2dc8367-1007-4938-bd23-fe263f013447')
-
-
-// Parse the resource ID to get subscription, resource group, and resource name
-var speechServiceSubscriptionId = split(speechServiceResourceId, '/')[2]
-var speechServiceName = split(speechServiceResourceId, '/')[8]
-
-// Reference the existing Speech Service
-resource speechService 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
-  name: speechServiceName
-}
-
-// Assign Cognitive Services Speech Contributor role to videos identity
-resource speechServiceRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: roleAssignmentName 
-  scope: speechService
+// Loop through each Speech Service resource ID
+resource speechServiceRoleAssignments 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for (speechServiceResourceId, index) in speechServiceResourceIds: {
+  name: guid(speechServiceResourceId, videosPrincipalId, 'f2dc8367-1007-4938-bd23-fe263f013447')
+  scope: speechServices[index]
   properties: {
-    roleDefinitionId: subscriptionResourceId(speechServiceSubscriptionId, 'Microsoft.Authorization/roleDefinitions', 'f2dc8367-1007-4938-bd23-fe263f013447') // Cognitive Services Speech Contributor
+    roleDefinitionId: subscriptionResourceId(split(speechServiceResourceId, '/')[2], 'Microsoft.Authorization/roleDefinitions', 'f2dc8367-1007-4938-bd23-fe263f013447') // Cognitive Services Speech Contributor
     principalId: videosPrincipalId
     principalType: 'ServicePrincipal'
   }
-}
+}]
 
-output roleAssignmentId string = speechServiceRoleAssignment.id
+// Reference the existing Speech Services
+resource speechServices 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = [for speechServiceResourceId in speechServiceResourceIds: {
+  name: split(speechServiceResourceId, '/')[8]
+}]
+
+output roleAssignmentIds array = [for i in range(0, length(speechServiceResourceIds)): speechServiceRoleAssignments[i].id]

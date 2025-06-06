@@ -62,11 +62,11 @@ hooks:
     posix:
       shell: sh
       run: 'echo VITE_API_BASE_URL=\"$API_BASE_URL\" > ./src/frontend/.env'    
-  # postdeploy:
-  #   windows:
-  #     shell: pwsh
-  #     run: 'rm ./src/frontend/.env'
-  #   posix:
-  #     shell: sh
-  #     run: 'rm ./src/frontend/.env'
+  postdeploy:
+    windows:
+      shell: pwsh
+      run: 'rm ./src/frontend/.env'
+    posix:
+      shell: sh
+      run: 'rm ./src/frontend/.env'
 
