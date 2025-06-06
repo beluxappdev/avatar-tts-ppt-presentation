@@ -4,7 +4,10 @@ param location string
 @description('Tags that will be applied to all resources')
 param tags object = {}
 
-@description('Name for the API user-assigned managed identity')
+@description('Name for the API Management user-assigned managed identity')
+param userAssignedIdentityApiMgmtName string
+
+@description('Name for the API container user-assigned managed identity')
 param userAssignedIdentityApiName string
 
 @description('Name for the extractors user-assigned managed identity')
@@ -15,6 +18,16 @@ param userAssignedIdentityUiName string
 
 @description('Name for the videos user-assigned managed identity')
 param userAssignedIdentityVideosName string
+
+// Create the user-assigned managed identity for API Management
+module userAssignedIdentityApiMgmt 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
+  name: userAssignedIdentityApiMgmtName
+  params: {
+    name: userAssignedIdentityApiMgmtName
+    location: location
+    tags: tags
+  }
+}
 
 // Create the user-assigned managed identity for API
 module userAssignedIdentityApi 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
@@ -72,3 +85,7 @@ output uiIdentityClientId string = userAssignedIdentityUi.outputs.clientId
 output videosIdentityId string = userAssignedIdentityVideos.outputs.resourceId
 output videosIdentityPrincipalId string = userAssignedIdentityVideos.outputs.principalId
 output videosIdentityClientId string = userAssignedIdentityVideos.outputs.clientId
+
+output apiMgmtIdentityId string = userAssignedIdentityApiMgmt.outputs.resourceId
+output apiMgmtIdentityPrincipalId string = userAssignedIdentityApiMgmt.outputs.principalId
+output apiMgmtIdentityClientId string = userAssignedIdentityApiMgmt.outputs.clientId

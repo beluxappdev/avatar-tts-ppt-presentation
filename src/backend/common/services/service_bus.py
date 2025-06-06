@@ -1,5 +1,6 @@
 import json
 import asyncio
+from datetime import datetime, timezone
 from typing import Dict, Any, Callable, Union
 import logging
 from azure.servicebus.aio import ServiceBusClient # type: ignore
@@ -32,7 +33,7 @@ class ServiceBusService:
         Args:
             destination_type (str): Type of destination - 'topic' or 'queue'
             destination_name (str): The name of the Service Bus topic or queue to send the message to.
-            messages_data (Dict[str, Any]): The message data to be sent, typically a dictionary containing the message content. 
+            message_data (Dict[str, Any]): The message data to be sent, typically a dictionary containing the message content. 
         """
         sender = None
         try:
@@ -64,6 +65,54 @@ class ServiceBusService:
             raise
         except Exception as e:
             logger.error(f"Unexpected error sending message to Service Bus: {e}")
+            raise
+        finally:
+            if sender:
+                await sender.close()
+
+    async def schedule_message(self, destination_type: str, destination_name: str, message_data: Dict[str, Any], scheduled_enqueue_time: Union[datetime, float]) -> None:
+        """Schedule a message to be delivered at a specific time
+
+        Args:
+            destination_type (str): Type of destination - 'topic' or 'queue'
+            destination_name (str): The name of the Service Bus topic or queue
+            message_data (Dict[str, Any]): The message data to be sent
+            scheduled_enqueue_time (Union[datetime, float]): When to deliver the message (datetime or unix timestamp)
+        """
+        sender = None
+        try:
+            # Get the async client
+            client = await self._get_client()
+            
+            if destination_type == "topic":
+                sender = client.get_topic_sender(topic_name=destination_name)
+            elif destination_type == "queue":
+                sender = client.get_queue_sender(queue_name=destination_name)
+            else:
+                raise ValueError("Invalid destination type. Must be 'topic' or 'queue'.")
+            
+            # Convert message data to JSON string
+            message_body = json.dumps(message_data, default=str)
+            
+            # Create ServiceBus message
+            message = ServiceBusMessage(message_body)
+            
+            # Convert scheduled time to datetime if it's a timestamp
+            if isinstance(scheduled_enqueue_time, (int, float)):
+                scheduled_time = datetime.fromtimestamp(scheduled_enqueue_time, tz=timezone.utc)
+            else:
+                scheduled_time = scheduled_enqueue_time
+            
+            # Schedule the message
+            await sender.schedule_messages(message, scheduled_time)
+            
+            logger.info(f"Message scheduled successfully to destination '{destination_name}' for {scheduled_time}")
+            
+        except AzureError as e:
+            logger.error(f"Azure error scheduling message to Service Bus: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error scheduling message to Service Bus: {e}")
             raise
         finally:
             if sender:
@@ -169,9 +218,12 @@ class ServiceBusService:
             max_wait_time: Maximum time to wait for messages (seconds)
             max_message_count: Maximum number of messages to receive at once
             retry_delay: Delay between retries when errors occur (seconds)
+            use_lock_renewer: Whether to use message lock renewal
+            use_delete_receiver: Whether to use RECEIVE_AND_DELETE mode
         """
         client = await self._get_client()
         receive_mode = ServiceBusReceiveMode.RECEIVE_AND_DELETE if use_delete_receiver else ServiceBusReceiveMode.PEEK_LOCK
+        
         def create_receiver():
             return client.get_subscription_receiver(
                 topic_name=topic_name,
@@ -201,9 +253,12 @@ class ServiceBusService:
             max_wait_time: Maximum time to wait for messages (seconds)
             max_message_count: Maximum number of messages to receive at once
             retry_delay: Delay between retries when errors occur (seconds)
+            use_lock_renewer: Whether to use message lock renewal
+            use_delete_receiver: Whether to use RECEIVE_AND_DELETE mode
         """
         client = await self._get_client()
         receive_mode = ServiceBusReceiveMode.RECEIVE_AND_DELETE if use_delete_receiver else ServiceBusReceiveMode.PEEK_LOCK
+        
         def create_receiver():
             return client.get_queue_receiver(
                 queue_name=queue_name,

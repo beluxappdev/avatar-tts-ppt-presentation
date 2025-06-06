@@ -52,8 +52,8 @@ module imageExtractor 'br/public:avm/res/app/container-app:0.8.0' = {
   params: {
     name: 'image-extractor'
     disableIngress: true
-    scaleMinReplicas: 1
-    scaleMaxReplicas: 10
+    scaleMinReplicas: 20
+    scaleMaxReplicas: 30
     secrets: {
       secureList: []
     }
@@ -107,8 +107,8 @@ module scriptExtractor 'br/public:avm/res/app/container-app:0.8.0' = {
   params: {
     name: 'script-extractor'
     disableIngress: true
-    scaleMinReplicas: 1
-    scaleMaxReplicas: 10
+    scaleMinReplicas: 10
+    scaleMaxReplicas: 20
     secrets: {
       secureList: []
     }

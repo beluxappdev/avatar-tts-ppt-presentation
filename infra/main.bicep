@@ -36,9 +36,6 @@ param videoTransformationExists bool
 @description('Whether the video concatenator container app already exists')
 param videoConcatenatorExists bool
 
-@description('The resource ID of the Speech Service')
-param speechServiceResourceId string
-
 @description('Tags that will be applied to all resources')
 param tags object = {
   'azd-env-name': environmentName
@@ -46,6 +43,9 @@ param tags object = {
 }
 
 /* ------------------------ User Assigned Identities ------------------------ */
+
+@description('API Management user-assigned identity name')
+param userAssignedIdentityApiMgmtName string = 'umidapimgmt'
 
 @description('API user-assigned identity name')
 param userAssignedIdentityApiName string = 'umidapi'
@@ -107,6 +107,21 @@ param serviceBusQueueVideoTransformationName string = 'video-transformation'
 @description('The name of the service bus queue for the video concatenator')
 param serviceBusQueueVideoConcatenatorName string = 'video-concatenator'
 
+/* ----------------------------- Speech Services ---------------------------- */
+
+@description('The Speech Services Base Name')
+param speechServiceBaseName string = 'speech-avatar-tts'
+
+@description('The number of Speech Services to deploy')
+param speechServiceCount int = 50
+
+@description('The location of the Speech Service')
+param speechServiceLocation string = 'westeurope'
+
+/* ----------------------------- API Management ----------------------------- */
+
+param apimName string = 'apim-avatar-tts'
+
 // ██    ██  █████  ██████  ██  █████  ██████  ██      ███████ ███████ 
 // ██    ██ ██   ██ ██   ██ ██ ██   ██ ██   ██ ██      ██      ██      
 // ██    ██ ███████ ██████  ██ ███████ ██████  ██      █████   ███████ 
@@ -118,7 +133,11 @@ var resourceToken = uniqueString(subscription().id, rg.id, location)
 // Load abbreviations from JSON file
 var abbrs = loadJsonContent('./abbreviations.json')
 
-var speechServiceResourceGroupName = split(speechServiceResourceId, '/')[4]
+// var speechServiceResourceIds = map(items(speechServices), item => item.value.resourceId)
+
+// var speechServiceEndpoints = map(items(speechServices), item => item.value.endpoint)
+
+// var speechServiceResourceGroupName = split(speechServiceResourceIds[0], '/')[4]
 
 // Common environment variables for container apps
 var env_variables = [
@@ -187,7 +206,7 @@ var env_variables = [
   }
   {
     name: 'SPEECH_ENDPOINT'
-    value: 'https://my-ai-cdn.cognitiveservices.azure.com/'
+    value: apiManagement.outputs.apimSpeechRouterUrl
   }
 ]
 
@@ -204,10 +223,6 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   tags: tags
 }
 
-resource rgSpeechService 'Microsoft.Resources/resourceGroups@2021-04-01' existing = {
-  name: speechServiceResourceGroupName
-}
-
 // 1. Deploy the identity module
 module identities './modules/identity/main.bicep' = {
   name: 'identities-deployment'
@@ -215,19 +230,11 @@ module identities './modules/identity/main.bicep' = {
   params: {
     location: location
     tags: tags
+    userAssignedIdentityApiMgmtName: userAssignedIdentityApiMgmtName
     userAssignedIdentityApiName: userAssignedIdentityApiName
     userAssignedIdentityExtractorsName: userAssignedIdentityExtractorsName
     userAssignedIdentityUiName: userAssignedIdentityUiName
     userAssignedIdentityVideosName: userAssignedIdentityVideosName
-  }
-}
-
-module assignSpeechRole './modules/identity/assign-speech-role.bicep' = {
-  name: 'assign-speech-role'
-  scope: rgSpeechService
-  params: {
-    speechServiceResourceId: speechServiceResourceId
-    videosPrincipalId: identities.outputs.videosIdentityPrincipalId
   }
 }
 
@@ -299,7 +306,35 @@ module serviceBus './modules/service-bus/main.bicep' = {
   }
 }
 
-// 6. Deploy the Container Registry module
+// 6. Deploy the Speech Services module
+module speechServices './modules/speech-services/main.bicep' = {
+  name: 'speech-services-deployment'
+  scope: rg
+  params: {
+    location: speechServiceLocation
+    tags: tags
+    resourceToken: resourceToken
+    speechServiceBaseName: speechServiceBaseName
+    speechServiceCount: speechServiceCount
+    apimPrincipalId: identities.outputs.apiMgmtIdentityPrincipalId
+  }
+}
+
+// 7. Deploy the API Management module
+module apiManagement './modules/api-management/main.bicep' = {
+  name: 'apim-deployment'
+  scope: rg
+  params: {
+    tags: tags
+    resourceToken: resourceToken
+    apimName: apimName
+    apiMgmtIdentityId: identities.outputs.apiMgmtIdentityId
+    apiMgmtIdentityClientId: identities.outputs.apiMgmtIdentityClientId
+    speechServicesNames: speechServices.outputs.speechServicesNames
+  }
+}
+
+// 8. Deploy the Container Registry module
 module registry './modules/container-registry/main.bicep' = {
   name: 'registry-deployment'
   scope: rg
@@ -315,7 +350,7 @@ module registry './modules/container-registry/main.bicep' = {
   }
 }
 
-// 7. Deploy the Container Apps module
+// 9. Deploy the Container Apps module
 module containerApps './modules/container-apps/main.bicep' = {
   name: 'container-apps-deployment'
   scope: rg
@@ -326,6 +361,7 @@ module containerApps './modules/container-apps/main.bicep' = {
     abbrs: abbrs
     logAnalyticsWorkspaceResourceId: monitoring.outputs.logAnalyticsWorkspaceResourceId
     containerRegistryLoginServer: registry.outputs.loginServer
+    speechServiceEndpoint: apiManagement.outputs.apimSpeechRouterUrl
     apiIdentityId: identities.outputs.apiIdentityId
     apiIdentityClientId: identities.outputs.apiIdentityClientId
     extractorsIdentityId: identities.outputs.extractorsIdentityId

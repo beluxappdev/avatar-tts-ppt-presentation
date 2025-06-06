@@ -10,6 +10,9 @@ param environmentId string
 @description('Container Registry login server')
 param containerRegistryLoginServer string
 
+@description('Speech Service endpoint for the video generator container apps')
+param speechServiceEndpoint string
+
 @description('User-assigned identity resource ID for the extractors')
 param videosIdentityId string
 
@@ -64,8 +67,8 @@ module videoGenerator 'br/public:avm/res/app/container-app:0.8.0' = {
   params: {
     name: 'video-generator'
     disableIngress: true
-    scaleMinReplicas: 1
-    scaleMaxReplicas: 10
+    scaleMinReplicas: 80
+    scaleMaxReplicas: 200
     secrets: {
       secureList: []
     }
@@ -109,13 +112,67 @@ module videoGenerator 'br/public:avm/res/app/container-app:0.8.0' = {
   }
 }
 
+// module videoGenerators 'br/public:avm/res/app/container-app:0.8.0' = [for (endpoint, index) in speechServiceEndpoints: {
+//   name: 'video-generator-${index + 1}'
+//   params: {
+//     name: 'video-generator-${index + 1}'
+//     disableIngress: true
+//     scaleMinReplicas: 1
+//     scaleMaxReplicas: 10
+//     secrets: {
+//       secureList: []
+//     }
+//     containers: [
+//       {
+//         image: videoGeneratorFetchLatestImage.outputs.?containers[?0].?image ?? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+//         name: 'main'
+//         resources: {
+//           cpu: json('0.5')
+//           memory: '1.0Gi'
+//         }
+//         env: concat([
+//           {
+//             name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+//             value: applicationInsightsConnectionString
+//           }
+//           {
+//             name: 'AZURE_CLIENT_ID'
+//             value: videosIdentityClientId
+//           }
+//           {
+//             name: 'AzureServices__ManagedIdentity__ClientId'
+//             value: videosIdentityClientId
+//           }
+//           {
+//             name: 'SPEECH_ENDPOINT'
+//             value: endpoint
+//           }
+//         ], commonEnvVariables)
+//       }
+//     ]
+//     managedIdentities: {
+//       systemAssigned: false
+//       userAssignedResourceIds: [videosIdentityId]
+//     }
+//     registries: [
+//       {
+//         server: containerRegistryLoginServer
+//         identity: videosIdentityId
+//       }
+//     ]
+//     environmentResourceId: environmentId
+//     location: location
+//     tags: union(tags, { 'azd-service-name': 'video-generator-${index + 1}' })
+//   }
+// }]
+
 module videoTransformation 'br/public:avm/res/app/container-app:0.8.0' = {
   name: 'video-transformation'
   params: {
     name: 'video-transformation'
     disableIngress: true
-    scaleMinReplicas: 1
-    scaleMaxReplicas: 10
+    scaleMinReplicas: 200
+    scaleMaxReplicas: 300
     secrets: {
       secureList: []
     }
@@ -165,8 +222,8 @@ module videoConcatenator 'br/public:avm/res/app/container-app:0.8.0' = {
   params: {
     name: 'video-concatenator'
     disableIngress: true
-    scaleMinReplicas: 1
-    scaleMaxReplicas: 10
+    scaleMinReplicas: 10
+    scaleMaxReplicas: 20
     secrets: {
       secureList: []
     }
@@ -211,7 +268,5 @@ module videoConcatenator 'br/public:avm/res/app/container-app:0.8.0' = {
 }
 
 // Outputs for use in other modules
-output videoGeneratorResourceId string = videoGenerator.outputs.resourceId
-output videoGeneratorName string = videoGenerator.outputs.name
 output videoConcatenatorResourceId string = videoConcatenator.outputs.resourceId
 output videoConcatenatorName string = videoConcatenator.outputs.name
