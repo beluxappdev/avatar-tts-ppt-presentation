@@ -81,3 +81,7 @@ Thumbs.db
 .env.local
 
 .azure/
+background.png
+*.mp4
+*.webm
+*.http

@@ -1,4 +1,4 @@
-from moviepy import VideoFileClip, ImageClip, CompositeVideoClip, vfx, concatenate_videoclips # type: ignore
+from moviepy import VideoFileClip, ImageClip, AudioClip, CompositeVideoClip, vfx, concatenate_videoclips # type: ignore
 from typing import Tuple, Union
 import os
 import logging
@@ -151,44 +151,7 @@ class VideoTransformer:
         self.avatar_video = self.avatar_video.with_position(position)
         self.logger.info(f"Positioned avatar at: {position}")
     
-    def add_pauses(self, pause_before: int = 0, pause_after: int = 0) -> None:
-        """
-        Add pause frames before and after the avatar video.
-        
-        Args:
-            pause_before: Seconds to pause on the first frame before video starts
-            pause_after: Seconds to pause on the last frame after video ends
-        """
-        if self.avatar_video is None:
-            raise ValueError("No avatar video loaded")
-        
-        clips_to_concatenate = []
-        
-        # Add pause before (first frame frozen)
-        if pause_before > 0:
-            first_frame = self.avatar_video.to_ImageClip(t=0, duration=pause_before)
-            # Preserve position and other properties
-            #first_frame = first_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
-            clips_to_concatenate.append(first_frame)
-            self.logger.info(f"Added {pause_before}s pause before video")
-        
-        # Add the main video
-        clips_to_concatenate.append(self.avatar_video)
-        
-        # Add pause after (last frame frozen)
-        if pause_after > 0:
-            last_frame = self.avatar_video.to_ImageClip(t=self.avatar_video.duration-0.01, duration=pause_after)
-            # Preserve position and other properties
-            #last_frame = last_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
-            clips_to_concatenate.append(last_frame)
-            self.logger.info(f"Added {pause_after}s pause after video")
-        
-        # Concatenate all clips
-        if len(clips_to_concatenate) > 1:
-            self.avatar_video = concatenate_videoclips(clips_to_concatenate, method="compose")
-            self.logger.info(f"Avatar video duration after pauses: {self.avatar_video.duration}s")
-    
-    def compose_video(self) -> None:
+    def compose_video(self, pause_before, pause_after) -> None:
         """
         Compose the final video by combining background and avatar.
         """
@@ -196,11 +159,46 @@ class VideoTransformer:
             raise ValueError("No avatar video loaded")
         if self.background is None:
             raise ValueError("No background loaded")
-        
-        # Update background duration to match avatar (including pauses)
-        self.background = self.background.with_duration(self.avatar_video.duration)
-        
-        self.final_video = CompositeVideoClip([self.background, self.avatar_video])
+    
+        # Create the main composite video first
+        main_composite = CompositeVideoClip([
+            self.background.with_duration(self.avatar_video.duration), 
+            self.avatar_video
+        ])
+    
+        clips_to_concatenate = []
+    
+        # Add pause before (first frame frozen) - with silent audio
+        if pause_before > 0:
+            first_frame = main_composite.to_ImageClip(t=0, duration=pause_before)
+            # Add silent audio to match the main video's audio properties
+            if main_composite.audio is not None:
+                silent_audio = AudioClip(frame_function=lambda t: [0, 0], duration=pause_before)
+                silent_audio = silent_audio.with_fps(main_composite.audio.fps)
+                first_frame = first_frame.with_audio(silent_audio)
+            clips_to_concatenate.append(first_frame)
+            self.logger.info(f"Added {pause_before}s pause before video")
+    
+        # Add the main video
+        clips_to_concatenate.append(main_composite)
+    
+        # Add pause after (last frame frozen) - with silent audio
+        if pause_after > 0:
+            last_frame = main_composite.to_ImageClip(t=main_composite.duration-0.01, duration=pause_after)
+            # Add silent audio to match the main video's audio properties
+            if main_composite.audio is not None:
+                silent_audio = AudioClip(frame_function=lambda t: [0, 0], duration=pause_after)
+                silent_audio = silent_audio.with_fps(main_composite.audio.fps)
+                last_frame = last_frame.with_audio(silent_audio)
+            clips_to_concatenate.append(last_frame)
+            self.logger.info(f"Added {pause_after}s pause after video")
+    
+        # Concatenate all clips
+        if len(clips_to_concatenate) > 1:
+            self.final_video = concatenate_videoclips(clips_to_concatenate)
+        else:
+            self.final_video = main_composite
+
         self.logger.info("Composed final video")
     
     def save_video(self, output_path: str, **kwargs) -> None:
@@ -262,11 +260,11 @@ class VideoTransformer:
             self.position_avatar(position)
             
             # Add pauses if specified
-            if pause_before > 0 or pause_after > 0:
-                self.add_pauses(pause_before, pause_after)
+            # if pause_before > 0 or pause_after > 0:
+            #     self.add_pauses(pause_before, pause_after)
             
             # Compose and save
-            self.compose_video()
+            self.compose_video(pause_before, pause_after)
             self.save_video(output_path, **save_kwargs)
             
             self.logger.info("Video transformation completed successfully")
@@ -307,12 +305,12 @@ if __name__ == "__main__":
     # Example with pauses: 2 seconds before, 3 seconds after
     transformer = VideoTransformer()
     transformer.transform_video(
-        avatar_path="meg.webm",
+        avatar_path="lori.webm",
         background_path="background.png",
         output_path="output.mp4",
         position=("left", "bottom"),
         size="medium",
-        crop_aspect_ratio=9/16,
+        crop_aspect_ratio=10/16,
         pause_before=2,  # 2 seconds pause showing first frame with avatar on background
         pause_after=3    # 3 seconds pause showing last frame with avatar on background
     )

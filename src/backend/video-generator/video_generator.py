@@ -300,7 +300,7 @@ class VideoGeneratorService(BaseService):
         for attempt in range(self.max_retries):
             try:
                 headers = {'Content-Type': 'application/json'}
-                headers.update(await self._get_authentication_headers())
+                #headers.update(await self._get_authentication_headers())
                 
                 async with aiohttp.ClientSession() as session:
                     async with session.put(url, json=payload, headers=headers) as response:
@@ -342,10 +342,10 @@ class VideoGeneratorService(BaseService):
         
         for attempt in range(self.max_retries):
             try:
-                headers = await self._get_authentication_headers()
+               #headers = await self._get_authentication_headers()
                 
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers) as response:
+                    async with session.get(url) as response:
                         if response.status < 400:
                             data = await response.json()
                             status = data['status']
