@@ -151,43 +151,6 @@ class VideoTransformer:
         self.avatar_video = self.avatar_video.with_position(position)
         self.logger.info(f"Positioned avatar at: {position}")
     
-    def add_pauses(self, pause_before: int = 0, pause_after: int = 0) -> None:
-        """
-        Add pause frames before and after the avatar video.
-        
-        Args:
-            pause_before: Seconds to pause on the first frame before video starts
-            pause_after: Seconds to pause on the last frame after video ends
-        """
-        if self.avatar_video is None:
-            raise ValueError("No avatar video loaded")
-        
-        clips_to_concatenate = []
-        
-        # Add pause before (first frame frozen)
-        if pause_before > 0:
-            first_frame = self.avatar_video.to_ImageClip(t=0, duration=pause_before)
-            # Preserve position and other properties
-            first_frame = first_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
-            clips_to_concatenate.append(first_frame)
-            self.logger.info(f"Added {pause_before}s pause before video")
-        
-        # Add the main video
-        clips_to_concatenate.append(self.avatar_video)
-        
-        # Add pause after (last frame frozen)
-        if pause_after > 0:
-            last_frame = self.avatar_video.to_ImageClip(t=self.avatar_video.duration-0.01, duration=pause_after)
-            # Preserve position and other properties
-            last_frame = last_frame.with_position(self.avatar_video.pos).with_mask(self.avatar_video.mask)
-            clips_to_concatenate.append(last_frame)
-            self.logger.info(f"Added {pause_after}s pause after video")
-        
-        # Concatenate all clips
-        if len(clips_to_concatenate) > 1:
-            self.avatar_video = concatenate_videoclips(clips_to_concatenate, method="compose")
-            self.logger.info(f"Avatar video duration after pauses: {self.avatar_video.duration}s")
-    
     def compose_video(self, pause_before, pause_after) -> None:
         """
         Compose the final video by combining background and avatar.
