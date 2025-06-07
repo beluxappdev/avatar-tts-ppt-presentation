@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
             transition: 'opacity 0.15s ease-in-out',
             transitionDelay: isExpanded ? '0.15s' : '0s'
           }}>
-            PowerPoint AI
+            Avatar AI
           </h2>
         )}
         <button
@@ -393,9 +393,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
           textOverflow: 'ellipsis',
           opacity: isExpanded ? 1 : 0,
           transition: 'opacity 0.15s ease-in-out',
-          transitionDelay: isExpanded ? '0.15s' : '0s'
+          transitionDelay: isExpanded ? '0.15s' : '0s',
+          textAlign: 'center',
         }}>
-          © 2025 PowerPoint AI
+          Made with ❤️ for the NATO AI Hackathon
         </div>
       )}
     </div>
