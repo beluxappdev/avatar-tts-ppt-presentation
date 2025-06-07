@@ -3,6 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import UserIcon from '../../assets/icons/usericon.png';
+import PowerPointIcon from '../../assets/icons/powerpoint.svg';
+import AddIcon from '@mui/icons-material/Add';
+import SignOutIcon from '../../assets/icons/SignOutIcon';
+
+
 
 interface SidebarProps {
   isExpanded: boolean;
@@ -30,21 +36,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
     {
       id: 'upload',
       label: 'New PowerPoint',
-      icon: '/icons/upload-icon.svg',
+      icon: 'add',
       path: '/',
       isActive: location.pathname === '/'
     },
     {
       id: 'powerpoints',
       label: 'PowerPoints',
-      icon: '/icons/powerpoint-icon.svg',
+      icon: PowerPointIcon,
       path: '/powerpoints',
       isActive: location.pathname === '/powerpoints'
     },
     {
       id: 'user',
       label: 'User',
-      icon: '/icons/user-icon.svg',
+      icon: UserIcon,
       isSpecial: true,
       isActive: showUserPopup
     }
@@ -229,25 +235,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
               }
             }}
           >
-            {/* Icon placeholder - replace with actual image */}
-            <div style={{
-              width: '24px',
-              height: '24px',
-              backgroundColor: '#64748b',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              color: 'white',
-              flexShrink: 0
-            }}>
-              {/* Placeholder - replace with: <img src={section.icon} alt={section.label} style={{width: '24px', height: '24px'}} /> */}
-              {section.id === 'upload' && '⬆'}
-              {section.id === 'powerpoints' && '📊'}
-              {section.id === 'videos' && '🎥'}
-              {section.id === 'user' && '👤'}
-            </div>
+            {section.icon === 'add' ? (
+              <div style={{
+                backgroundColor: '#643dff',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0px 2px 4px rgba(0,0,0,0.2)',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#5235cc';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#643dff';
+              }}
+              >
+                <AddIcon sx={{ color: 'white', fontSize: 20 }} />
+              </div>
+            ) : (
+              <img 
+                src={section.icon} 
+                alt={section.label} 
+                style={{
+                  width: '30px', 
+                  height: '30px',
+                }} 
+              />
+            )}
             
             {isExpanded && (
               <span style={{
@@ -363,7 +381,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
                       fontSize: '14px',
                       color: '#ef4444',
                       textAlign: 'left',
-                      transition: 'background-color 0.2s'
+                      transition: 'background-color 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
                     }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#fef2f2';
@@ -372,7 +393,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
-                    🚪 Sign Out
+                    <div style={{ width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <SignOutIcon />
+                    </div>
+                    Sign Out
                   </button>
                 </div>
               </div>
