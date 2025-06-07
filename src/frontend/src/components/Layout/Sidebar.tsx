@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 
 interface SidebarProps {
   isExpanded: boolean;
@@ -21,6 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [showUserPopup, setShowUserPopup] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const userPopupRef = useRef<HTMLDivElement>(null);
 
   const sections: SidebarSection[] = [
@@ -101,24 +104,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
             margin: 0,
             fontSize: '1.25rem',
             fontWeight: '600',
-            color: '#f1f5f9'
+            color: '#f1f5f9',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            opacity: isExpanded ? 1 : 0,
+            transition: 'opacity 0.15s ease-in-out',
+            transitionDelay: isExpanded ? '0.15s' : '0s'
           }}>
             PowerPoint AI
           </h2>
         )}
         <button
           onClick={onToggle}
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
           style={{
             background: 'none',
             border: 'none',
             color: '#94a3b8',
             cursor: 'pointer',
             padding: '8px',
-            borderRadius: '4px',
+            borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'background-color 0.2s'
+            transition: 'background-color 0.2s',
+            position: 'relative',
+            width: '40px',
+            height: '40px'
           }}
           onMouseOver={(e) => {
             e.currentTarget.style.backgroundColor = '#334155';
@@ -127,9 +141,58 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
             e.currentTarget.style.backgroundColor = 'transparent';
           }}
         >
-          <span style={{ fontSize: '20px' }}>
-            {isExpanded ? '←' : '→'}
+          {/* Left arrow when sidebar is open */}
+          <span style={{ 
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            opacity: isExpanded ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <KeyboardArrowLeftIcon sx={{ fontSize: 24, color: '#94a3b8' }} />
           </span>
+          
+          {/* Right arrow when hovering over closed sidebar */}
+          <span style={{ 
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            opacity: !isExpanded && isHovering ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <KeyboardArrowRightIcon sx={{ fontSize: 24, color: '#94a3b8' }} />
+          </span>
+          
+          {/* Icon when sidebar is closed and not hovering */}
+          <div style={{ 
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            opacity: !isExpanded && !isHovering ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+            display: 'flex',
+            width: '24px',
+            height: '24px',
+            border: '2px solid #94a3b8',
+            borderRadius: '2px',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <div style={{ 
+              height: '100%',
+              width: '40%',
+              borderRight: '2px solid #94a3b8'
+            }} />
+          </div>
         </button>
       </div>
 
@@ -192,7 +255,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
                 fontSize: '14px',
                 fontWeight: '500',
                 whiteSpace: 'nowrap',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                opacity: isExpanded ? 1 : 0,
+                transition: 'opacity 0.15s ease-in-out',
+                transitionDelay: isExpanded ? '0.15s' : '0s'
               }}>
                 {section.label}
               </span>
@@ -320,7 +387,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
           padding: '1rem',
           borderTop: '1px solid #334155',
           fontSize: '12px',
-          color: '#94a3b8'
+          color: '#94a3b8',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          opacity: isExpanded ? 1 : 0,
+          transition: 'opacity 0.15s ease-in-out',
+          transitionDelay: isExpanded ? '0.15s' : '0s'
         }}>
           © 2025 PowerPoint AI
         </div>
