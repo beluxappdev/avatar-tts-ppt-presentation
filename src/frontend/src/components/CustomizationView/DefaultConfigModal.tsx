@@ -104,7 +104,7 @@ const DefaultConfigModal: React.FC<DefaultConfigModalProps> = ({
   };
 
   const inputStyle: React.CSSProperties = {
-    width: '100%',
+    width: '80px',
     padding: '0.5rem',
     border: '1px solid #ddd',
     borderRadius: '4px',
@@ -121,7 +121,7 @@ const DefaultConfigModal: React.FC<DefaultConfigModalProps> = ({
   };
 
   const unitsStyle: React.CSSProperties = {
-    fontSize: '0.9rem',
+    fontSize: '0.8rem',
     color: '#666',
     fontWeight: 400,
     minWidth: '60px'
@@ -247,44 +247,54 @@ const DefaultConfigModal: React.FC<DefaultConfigModalProps> = ({
         </div>
 
         <div style={formGroupStyle}>
-          <label style={labelStyle} htmlFor="pause-before-default">
-            Pause before beginning
-          </label>
-          <div style={inputContainerStyle}>
-            <input
-              id="pause-before-default"
-              type="number"
-              min="0"
-              step="1"
-              style={inputStyle}
-              value={config.pauseBeforeBeginning}
-              onChange={(e) => {
-                const value = parseInt(e.target.value) || 0;
-                handleConfigChange({ pauseBeforeBeginning: Math.max(0, value) });
-              }}
-            />
-            <span style={unitsStyle}>seconds</span>
-          </div>
-        </div>
-
-        <div style={formGroupStyle}>
-          <label style={labelStyle} htmlFor="pause-after-default">
-            Pause after ending
-          </label>
-          <div style={inputContainerStyle}>
-            <input
-              id="pause-after-default"
-              type="number"
-              min="0"
-              step="1"
-              style={inputStyle}
-              value={config.pauseAfterEnding}
-              onChange={(e) => {
-                const value = parseInt(e.target.value) || 0;
-                handleConfigChange({ pauseAfterEnding: Math.max(0, value) });
-              }}
-            />
-            <span style={unitsStyle}>seconds</span>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1rem'
+          }}>
+            <div>
+              <label style={labelStyle} htmlFor="pause-before-default">
+                Pause before
+              </label>
+              <div style={inputContainerStyle}>
+                <input
+                  id="pause-before-default"
+                  type="number"
+                  min="0"
+                  max="60"
+                  step="1"
+                  style={inputStyle}
+                  value={config.pauseBeforeBeginning}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    handleConfigChange({ pauseBeforeBeginning: Math.max(0, Math.min(60, value)) });
+                  }}
+                />
+                <span style={unitsStyle}>sec</span>
+              </div>
+            </div>
+            
+            <div>
+              <label style={labelStyle} htmlFor="pause-after-default">
+                Pause after
+              </label>
+              <div style={inputContainerStyle}>
+                <input
+                  id="pause-after-default"
+                  type="number"
+                  min="0"
+                  max="60"
+                  step="1"
+                  style={inputStyle}
+                  value={config.pauseAfterEnding}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    handleConfigChange({ pauseAfterEnding: Math.max(0, Math.min(60, value)) });
+                  }}
+                />
+                <span style={unitsStyle}>sec</span>
+              </div>
+            </div>
           </div>
         </div>
 

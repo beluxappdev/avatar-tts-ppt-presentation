@@ -420,6 +420,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
           transitionDelay: isExpanded ? '0.15s' : '0s',
           textAlign: 'center',
         }}>
+          © 2025 Avatar AI<br />
           Made with ❤️ for the NATO AI Hackathon
         </div>
       )}

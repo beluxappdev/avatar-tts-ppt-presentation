@@ -6,23 +6,41 @@ interface SlideScriptProps {
 }
 
 const SlideScript: React.FC<SlideScriptProps> = ({ script, onScriptChange }) => {
+  const MAX_SCRIPT_LENGTH = 500;
+  
+  // Truncate script if it exceeds the limit
+  const truncateScript = (text: string | null): string => {
+    if (!text) return '';
+    return text.length > MAX_SCRIPT_LENGTH ? text.substring(0, MAX_SCRIPT_LENGTH) : text;
+  };
+
   const [isEditing, setIsEditing] = useState(false);
-  const [editedScript, setEditedScript] = useState(script || '');
+  const [editedScript, setEditedScript] = useState(truncateScript(script));
 
   const handleEdit = () => {
-    setEditedScript(script || '');
+    setEditedScript(truncateScript(script));
     setIsEditing(true);
   };
 
   const handleSave = () => {
-    onScriptChange(editedScript);
+    const finalScript = truncateScript(editedScript);
+    onScriptChange(finalScript);
     setIsEditing(false);
   };
 
   const handleCancel = () => {
-    setEditedScript(script || '');
+    setEditedScript(truncateScript(script));
     setIsEditing(false);
   };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    // Limit input to MAX_SCRIPT_LENGTH characters
+    if (newText.length <= MAX_SCRIPT_LENGTH) {
+      setEditedScript(newText);
+    }
+  };
+
   const containerStyle: React.CSSProperties = {
     padding: '1.5rem',
     backgroundColor: '#1976d2',
@@ -98,6 +116,16 @@ const SlideScript: React.FC<SlideScriptProps> = ({ script, onScriptChange }) => 
     opacity: 0.8
   };
 
+  const characterCountStyle: React.CSSProperties = {
+    fontSize: '0.875rem',
+    opacity: 0.8,
+    marginTop: '0.5rem',
+    textAlign: 'right' as const
+  };
+
+  const truncatedScript = truncateScript(script);
+  const wasOriginalTruncated = script && script.length > MAX_SCRIPT_LENGTH;
+
   return (
     <div style={containerStyle}>
       <div style={titleStyle}>
@@ -114,9 +142,12 @@ const SlideScript: React.FC<SlideScriptProps> = ({ script, onScriptChange }) => 
           <textarea
             style={textareaStyle}
             value={editedScript}
-            onChange={(e) => setEditedScript(e.target.value)}
+            onChange={handleTextChange}
             placeholder="Enter slide script..."
           />
+          <div style={characterCountStyle}>
+            {editedScript.length}/{MAX_SCRIPT_LENGTH} characters
+          </div>
           <div style={buttonGroupStyle}>
             <button style={saveButtonStyle} onClick={handleSave}>
               Save
@@ -128,8 +159,15 @@ const SlideScript: React.FC<SlideScriptProps> = ({ script, onScriptChange }) => 
         </>
       ) : (
         <>
-          {script ? (
-            <p style={scriptStyle}>{script}</p>
+          {truncatedScript ? (
+            <>
+              <p style={scriptStyle}>{truncatedScript}</p>
+              {wasOriginalTruncated && (
+                <div style={{ ...characterCountStyle, opacity: 0.6, fontStyle: 'italic' }}>
+                  Script was truncated to {MAX_SCRIPT_LENGTH} characters
+                </div>
+              )}
+            </>
           ) : (
             <p style={noScriptStyle}>No script available for this slide.</p>
           )}

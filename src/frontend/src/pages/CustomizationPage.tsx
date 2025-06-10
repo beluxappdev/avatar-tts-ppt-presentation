@@ -52,6 +52,13 @@ export const CustomizationPage: React.FC = () => {
     pauseBeforeBeginning: 0,
     pauseAfterEnding: 0
   };
+
+  const MAX_SCRIPT_LENGTH = 500;
+
+  const truncateScript = (script: string | null): string | null => {
+    if (!script) return null;
+    return script.length > MAX_SCRIPT_LENGTH ? script.substring(0, MAX_SCRIPT_LENGTH) : script;
+  };
   
   // Store configurations for each slide
   const [slideConfigs, setSlideConfigs] = useState<{[key: number]: SlideAvatarConfig}>({});
@@ -68,7 +75,7 @@ export const CustomizationPage: React.FC = () => {
     // If no stored config, create one from original slide data + defaults
     return {
       ...defaultAvatarConfig,
-      script: originalSlide?.script || null
+      script: truncateScript(originalSlide?.script || null)
     };
   };
 
@@ -86,6 +93,10 @@ export const CustomizationPage: React.FC = () => {
     if (currentSlideIndex < slides.length - 1) {
       setCurrentSlideIndex(currentSlideIndex + 1);
     }
+  };
+
+  const handleSlideChange = (slideIndex: number) => {
+    setCurrentSlideIndex(slideIndex);
   };
 
   const handleToggleFullscreen = () => {
@@ -128,7 +139,7 @@ export const CustomizationPage: React.FC = () => {
     slides.forEach((slide, index) => {
       updatedConfigs[index] = {
         ...newDefaults,
-        script: slideConfigs[index]?.script || slide.script
+        script: truncateScript(slideConfigs[index]?.script || slide.script)
       };
     });
     
@@ -150,12 +161,12 @@ export const CustomizationPage: React.FC = () => {
     const slidesConfig: SlideConfig[] = slides.map((slide, index) => {
       const config = slideConfigs[index] || {
         ...defaultAvatarConfig,
-        script: slide.script
+        script: truncateScript(slide.script) ?? ''
       };
       
       return {
         index: (index).toString(), // API expects 1-based index as string
-        script: config.script || slide.script || '',
+        script: truncateScript(config.script || slide.script || ''),
         avatar_config: {
           show_avatar: config.showAvatar,
           avatar_persona: config.avatarType, // Map avatarType to avatar_persona
@@ -348,7 +359,7 @@ export const CustomizationPage: React.FC = () => {
   // Create a slide object with the current script (either modified or original)
   const currentSlideWithScript = {
     ...currentSlide,
-    script: currentConfig.script
+    script: truncateScript(currentConfig.script)
   };
 
   // Fullscreen view
@@ -442,6 +453,7 @@ export const CustomizationPage: React.FC = () => {
             onPrevious={handlePreviousSlide}
             onNext={handleNextSlide}
             onFullscreen={handleToggleFullscreen}
+            onSlideChange={handleSlideChange}
         />
       
         <div style={contentStyle}>
