@@ -1,6 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import UserIcon from '../../assets/icons/usericon.png';
+import PowerPointIcon from '../../assets/icons/powerpoint.svg';
+import AddIcon from '@mui/icons-material/Add';
+import SignOutIcon from '../../assets/icons/SignOutIcon';
+
+
 
 interface SidebarProps {
   isExpanded: boolean;
@@ -21,27 +29,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [showUserPopup, setShowUserPopup] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const userPopupRef = useRef<HTMLDivElement>(null);
 
   const sections: SidebarSection[] = [
     {
       id: 'upload',
       label: 'New PowerPoint',
-      icon: '/icons/upload-icon.svg',
+      icon: 'add',
       path: '/',
       isActive: location.pathname === '/'
     },
     {
       id: 'powerpoints',
       label: 'PowerPoints',
-      icon: '/icons/powerpoint-icon.svg',
+      icon: PowerPointIcon,
       path: '/powerpoints',
       isActive: location.pathname === '/powerpoints'
     },
     {
       id: 'user',
       label: 'User',
-      icon: '/icons/user-icon.svg',
+      icon: UserIcon,
       isSpecial: true,
       isActive: showUserPopup
     }
@@ -101,24 +110,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
             margin: 0,
             fontSize: '1.25rem',
             fontWeight: '600',
-            color: '#f1f5f9'
+            color: '#f1f5f9',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            opacity: isExpanded ? 1 : 0,
+            transition: 'opacity 0.15s ease-in-out',
+            transitionDelay: isExpanded ? '0.15s' : '0s'
           }}>
             Avatar AI
           </h2>
         )}
         <button
           onClick={onToggle}
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
           style={{
             background: 'none',
             border: 'none',
             color: '#94a3b8',
             cursor: 'pointer',
             padding: '8px',
-            borderRadius: '4px',
+            borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'background-color 0.2s'
+            transition: 'background-color 0.2s',
+            position: 'relative',
+            width: '40px',
+            height: '40px'
           }}
           onMouseOver={(e) => {
             e.currentTarget.style.backgroundColor = '#334155';
@@ -127,9 +147,58 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
             e.currentTarget.style.backgroundColor = 'transparent';
           }}
         >
-          <span style={{ fontSize: '20px' }}>
-            {isExpanded ? '←' : '→'}
+          {/* Left arrow when sidebar is open */}
+          <span style={{ 
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            opacity: isExpanded ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <KeyboardArrowLeftIcon sx={{ fontSize: 24, color: '#94a3b8' }} />
           </span>
+          
+          {/* Right arrow when hovering over closed sidebar */}
+          <span style={{ 
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            opacity: !isExpanded && isHovering ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <KeyboardArrowRightIcon sx={{ fontSize: 24, color: '#94a3b8' }} />
+          </span>
+          
+          {/* Icon when sidebar is closed and not hovering */}
+          <div style={{ 
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            opacity: !isExpanded && !isHovering ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+            display: 'flex',
+            width: '24px',
+            height: '24px',
+            border: '2px solid #94a3b8',
+            borderRadius: '2px',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <div style={{ 
+              height: '100%',
+              width: '40%',
+              borderRight: '2px solid #94a3b8'
+            }} />
+          </div>
         </button>
       </div>
 
@@ -166,25 +235,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
               }
             }}
           >
-            {/* Icon placeholder - replace with actual image */}
-            <div style={{
-              width: '24px',
-              height: '24px',
-              backgroundColor: '#64748b',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              color: 'white',
-              flexShrink: 0
-            }}>
-              {/* Placeholder - replace with: <img src={section.icon} alt={section.label} style={{width: '24px', height: '24px'}} /> */}
-              {section.id === 'upload' && '⬆'}
-              {section.id === 'powerpoints' && '📊'}
-              {section.id === 'videos' && '🎥'}
-              {section.id === 'user' && '👤'}
-            </div>
+            {section.icon === 'add' ? (
+              <div style={{
+                backgroundColor: '#643dff',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0px 2px 4px rgba(0,0,0,0.2)',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#5235cc';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#643dff';
+              }}
+              >
+                <AddIcon sx={{ color: 'white', fontSize: 20 }} />
+              </div>
+            ) : (
+              <img 
+                src={section.icon} 
+                alt={section.label} 
+                style={{
+                  width: '30px', 
+                  height: '30px',
+                }} 
+              />
+            )}
             
             {isExpanded && (
               <span style={{
@@ -192,7 +273,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
                 fontSize: '14px',
                 fontWeight: '500',
                 whiteSpace: 'nowrap',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                opacity: isExpanded ? 1 : 0,
+                transition: 'opacity 0.15s ease-in-out',
+                transitionDelay: isExpanded ? '0.15s' : '0s'
               }}>
                 {section.label}
               </span>
@@ -296,7 +381,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
                       fontSize: '14px',
                       color: '#ef4444',
                       textAlign: 'left',
-                      transition: 'background-color 0.2s'
+                      transition: 'background-color 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
                     }}
                     onMouseOver={(e) => {
                       e.currentTarget.style.backgroundColor = '#fef2f2';
@@ -305,7 +393,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
-                    🚪 Sign Out
+                    <div style={{ width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <SignOutIcon />
+                    </div>
+                    Sign Out
                   </button>
                 </div>
               </div>
@@ -320,10 +411,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
           padding: '1rem',
           borderTop: '1px solid #334155',
           fontSize: '12px',
-          color: '#94a3b8'
+          color: '#94a3b8',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          opacity: isExpanded ? 1 : 0,
+          transition: 'opacity 0.15s ease-in-out',
+          transitionDelay: isExpanded ? '0.15s' : '0s',
+          textAlign: 'center',
         }}>
           © 2025 Avatar AI<br />
-          Made with ❤️ by the Avatar AI Team
+          Made with ❤️ for the NATO AI Hackathon
         </div>
       )}
     </div>

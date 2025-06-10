@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import PowerPointIcon from '../../assets/icons/powerpoint.svg';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -145,7 +146,19 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         ) : (
           <div>
             <div style={{ fontSize: '48px', marginBottom: '1rem' }}>
-              {isDragging ? '📁' : '☁️'}
+              {isDragging ? (
+                '📁'
+              ) : (
+                <img 
+                  src={PowerPointIcon} 
+                  alt="PowerPoint" 
+                  style={{
+                    width: '56px',
+                    height: '56px',
+                    marginTop: '24px'
+                  }}
+                />
+              )}
             </div>
             <h3 style={{ 
               margin: '0 0 0.5rem 0', 

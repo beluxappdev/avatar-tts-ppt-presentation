@@ -5,6 +5,7 @@ import { useUpload } from '../hooks/useUpload';
 import { FileUpload } from '../components/FileUpload/FileUpload';
 import { Button } from '../components/common/Button';
 import { StatusMessage } from '../components/common/StatusMessage';
+import AIAvatar from '../assets/ai-avatar.png';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -52,14 +53,30 @@ export const HomePage: React.FC = () => {
           alignItems: 'center',
           marginBottom: '3rem'
         }}>
-          <h1 style={{ 
-            margin: 0, 
-            color: '#1e293b',
-            fontSize: '2rem',
-            fontWeight: '600'
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem'
           }}>
-            Welcome, {user?.name?.split(' ')[0]}
-          </h1>
+            <img 
+              src={AIAvatar} 
+              alt="AI Avatar" 
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                objectFit: 'cover'
+              }}
+            />
+            <h1 style={{ 
+              margin: 0, 
+              color: '#1e293b',
+              fontSize: '2rem',
+              fontWeight: '600'
+            }}>
+              Welcome, {user?.name?.split(' ')[0]}
+            </h1>
+          </div>
         </div>
 
         {/* Upload Section */}
