@@ -1,6 +1,6 @@
 export interface SlideConfig {
   index: string;
-  script: string;
+  script: string | null;
   avatar_config: {
     show_avatar: boolean;
     avatar_persona: string;

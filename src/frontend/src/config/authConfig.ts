@@ -7,8 +7,8 @@ export const msalConfig: Configuration = {
     auth: {
         clientId: 'fca495de-e9eb-4bb4-82f6-dbcaf9a9771e',
         authority: 'https://login.microsoftonline.com/common',
-        redirectUri: "http://localhost:5173", // This is the URL where MSAL will redirect after login
-        postLogoutRedirectUri: "http://localhost:5173",
+        redirectUri: window.location.origin, // This is the URL where MSAL will redirect after login
+        postLogoutRedirectUri: window.location.origin,
     },
     cache: {
         cacheLocation: 'sessionStorage', // This configures where your cache will be stored

@@ -103,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
             fontWeight: '600',
             color: '#f1f5f9'
           }}>
-            PowerPoint AI
+            Avatar AI
           </h2>
         )}
         <button
@@ -322,7 +322,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isExpanded, onToggle }) => {
           fontSize: '12px',
           color: '#94a3b8'
         }}>
-          © 2025 PowerPoint AI
+          © 2025 Avatar AI<br />
+          Made with ❤️ by the Avatar AI Team
         </div>
       )}
     </div>

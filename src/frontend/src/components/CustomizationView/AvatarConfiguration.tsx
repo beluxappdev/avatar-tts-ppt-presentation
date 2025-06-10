@@ -58,12 +58,12 @@ const AvatarConfiguration: React.FC<AvatarConfigurationProps> = ({
 
   const handlePauseBeforeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value) || 0;
-    onConfigChange({ pauseBeforeBeginning: Math.max(0, value) });
+    onConfigChange({ pauseBeforeBeginning: Math.max(0, Math.min(60, value)) });
   };
 
   const handlePauseAfterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value) || 0;
-    onConfigChange({ pauseAfterEnding: Math.max(0, value) });
+    onConfigChange({ pauseAfterEnding: Math.max(0, Math.min(60, value)) });
   };
 
   const containerStyle: React.CSSProperties = {
@@ -119,7 +119,7 @@ const AvatarConfiguration: React.FC<AvatarConfigurationProps> = ({
   };
 
   const inputStyle: React.CSSProperties = {
-    width: '100%',
+    width: '80px', // Reduced from 100%
     padding: '0.5rem',
     border: '1px solid #ddd',
     borderRadius: '4px',
@@ -233,38 +233,48 @@ const AvatarConfiguration: React.FC<AvatarConfigurationProps> = ({
       </div>
 
       <div style={formGroupStyle}>
-        <label style={labelStyle} htmlFor="pause-before">
-          Pause before beginning
-        </label>
-        <div style={inputContainerStyle}>
-          <input
-            id="pause-before"
-            type="number"
-            min="0"
-            step="1"
-            style={inputStyle}
-            value={config.pauseBeforeBeginning}
-            onChange={handlePauseBeforeChange}
-          />
-          <span style={unitsStyle}>seconds</span>
-        </div>
-      </div>
-
-      <div style={formGroupStyle}>
-        <label style={labelStyle} htmlFor="pause-after">
-          Pause after ending
-        </label>
-        <div style={inputContainerStyle}>
-          <input
-            id="pause-after"
-            type="number"
-            min="0"
-            step="1"
-            style={inputStyle}
-            value={config.pauseAfterEnding}
-            onChange={handlePauseAfterChange}
-          />
-          <span style={unitsStyle}>seconds</span>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '1rem'
+        }}>
+          <div>
+            <label style={labelStyle} htmlFor="pause-before">
+              Pause before
+            </label>
+            <div style={inputContainerStyle}>
+              <input
+                id="pause-before"
+                type="number"
+                min="0"
+                max="60"
+                step="1"
+                style={inputStyle}
+                value={config.pauseBeforeBeginning}
+                onChange={handlePauseBeforeChange}
+              />
+              <span style={{...unitsStyle, fontSize: '0.8rem'}}>sec</span>
+            </div>
+          </div>
+          
+          <div>
+            <label style={labelStyle} htmlFor="pause-after">
+              Pause after
+            </label>
+            <div style={inputContainerStyle}>
+              <input
+                id="pause-after"
+                type="number"
+                min="0"
+                max="60"
+                step="1"
+                style={inputStyle}
+                value={config.pauseAfterEnding}
+                onChange={handlePauseAfterChange}
+              />
+              <span style={{...unitsStyle, fontSize: '0.8rem'}}>sec</span>
+            </div>
+          </div>
         </div>
       </div>
       

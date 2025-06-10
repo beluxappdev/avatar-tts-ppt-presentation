@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface SlideNavigationProps {
   currentSlide: number;
@@ -6,6 +6,7 @@ interface SlideNavigationProps {
   onPrevious: () => void;
   onNext: () => void;
   onFullscreen?: () => void;
+  onSlideChange?: (slideIndex: number) => void;
 }
 
 const SlideNavigation: React.FC<SlideNavigationProps> = ({
@@ -13,8 +14,48 @@ const SlideNavigation: React.FC<SlideNavigationProps> = ({
   totalSlides,
   onPrevious,
   onNext,
-  onFullscreen
+  onFullscreen,
+  onSlideChange
 }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+
+  const handleSlideNumberClick = () => {
+    setInputValue((currentSlide + 1).toString());
+    setIsEditing(true);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Only allow numeric input
+    if (/^\d*$/.test(value)) {
+      setInputValue(value);
+    }
+  };
+
+  const handleInputSubmit = () => {
+    const slideNumber = parseInt(inputValue);
+    if (slideNumber && onSlideChange) {
+      // Clamp the value between 1 and totalSlides
+      const clampedSlideNumber = Math.max(1, Math.min(slideNumber, totalSlides));
+      // Convert to 0-based index
+      onSlideChange(clampedSlideNumber - 1);
+    }
+    setIsEditing(false);
+  };
+
+  const handleInputKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleInputSubmit();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+    }
+  };
+
+  const handleInputBlur = () => {
+    handleInputSubmit();
+  };
+
   const containerStyle: React.CSSProperties = {
     display: 'flex',
     justifyContent: 'space-between',
@@ -46,7 +87,7 @@ const SlideNavigation: React.FC<SlideNavigationProps> = ({
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
-    color: '#333' // Dark text for white background
+    color: '#333'
   };
 
   const fullscreenButtonStyle: React.CSSProperties = {
@@ -58,7 +99,37 @@ const SlideNavigation: React.FC<SlideNavigationProps> = ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#333' // Dark text for visibility
+    color: '#333'
+  };
+
+  const clickableSlideStyle: React.CSSProperties = {
+    fontSize: '1rem',
+    fontWeight: 500,
+    color: '#333',
+    cursor: 'pointer',
+    padding: '4px 8px',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    backgroundColor: '#f9f9f9',
+    transition: 'all 0.2s',
+    display: 'inline-block'
+  };
+
+  const slideInputStyle: React.CSSProperties = {
+    width: '50px',
+    padding: '2px 4px',
+    fontSize: '1rem',
+    fontWeight: 500,
+    border: '2px solid #1976d2',
+    borderRadius: '4px',
+    textAlign: 'center' as const,
+    outline: 'none'
+  };
+
+  const staticTextStyle: React.CSSProperties = {
+    fontSize: '1rem',
+    fontWeight: 500,
+    color: '#333'
   };
 
   return (
@@ -73,8 +144,37 @@ const SlideNavigation: React.FC<SlideNavigationProps> = ({
       </button>
       
       <div style={centerContentStyle}>
-        <span style={{ fontSize: '1rem', fontWeight: 500, color: '#333' }}>
-          Slide {currentSlide + 1} of {totalSlides}
+        <span style={staticTextStyle}>
+          Slide{' '}
+          {isEditing ? (
+            <input
+              type="text"
+              value={inputValue}
+              onChange={handleInputChange}
+              onKeyDown={handleInputKeyPress}
+              onBlur={handleInputBlur}
+              style={slideInputStyle}
+              autoFocus
+              maxLength={3}
+            />
+          ) : (
+            <span 
+              style={clickableSlideStyle}
+              onClick={handleSlideNumberClick}
+              title="Click to jump to a specific slide"
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#e9e9e9';
+                e.currentTarget.style.borderColor = '#bbb';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#f9f9f9';
+                e.currentTarget.style.borderColor = '#ddd';
+              }}
+            >
+              {currentSlide + 1}
+            </span>
+          )}
+          {' '}of {totalSlides}
         </span>
         {onFullscreen && (
           <button style={fullscreenButtonStyle} onClick={onFullscreen}>
