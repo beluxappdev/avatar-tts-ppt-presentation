@@ -2,7 +2,7 @@
 
 A cloud-native application that transforms PowerPoint presentations into engaging video content with AI-powered avatars. Users authenticate with Microsoft Entra ID, upload PowerPoint files, customize avatar settings (type, position, size, and breaks), and generate videos where avatars read the slide notes with the original presentation slides as backgrounds.
 
-![Application](assets/customization_image.png)
+![Application](assets/customization-view.png)
 
 ## Features
 
