@@ -19,6 +19,7 @@ module apim 'br/public:avm/res/api-management/service:0.9.1' = {
   params: {
     // Required parameters
     name: '${apimName}-${resourceToken}'
+    sku: 'Consumption'
     tags: tags
     publisherEmail: 'apimgmt-noreply@mail.windowsazure.com'
     publisherName: 'az-amorg-x-001'

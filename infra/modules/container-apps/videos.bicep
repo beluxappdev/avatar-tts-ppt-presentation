@@ -67,8 +67,8 @@ module videoGenerator 'br/public:avm/res/app/container-app:0.8.0' = {
   params: {
     name: 'video-generator'
     disableIngress: true
-    scaleMinReplicas: 80
-    scaleMaxReplicas: 200
+    scaleMinReplicas: 10
+    scaleMaxReplicas: 30
     secrets: {
       secureList: []
     }
@@ -171,8 +171,8 @@ module videoTransformation 'br/public:avm/res/app/container-app:0.8.0' = {
   params: {
     name: 'video-transformation'
     disableIngress: true
-    scaleMinReplicas: 200
-    scaleMaxReplicas: 300
+    scaleMinReplicas: 10
+    scaleMaxReplicas: 30
     secrets: {
       secureList: []
     }
@@ -222,8 +222,8 @@ module videoConcatenator 'br/public:avm/res/app/container-app:0.8.0' = {
   params: {
     name: 'video-concatenator'
     disableIngress: true
-    scaleMinReplicas: 10
-    scaleMaxReplicas: 20
+    scaleMinReplicas: 1
+    scaleMaxReplicas: 10
     secrets: {
       secureList: []
     }
