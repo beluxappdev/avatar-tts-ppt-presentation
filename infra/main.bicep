@@ -113,7 +113,7 @@ param serviceBusQueueVideoConcatenatorName string = 'video-concatenator'
 param speechServiceBaseName string = 'speech-avatar-tts'
 
 @description('The number of Speech Services to deploy')
-param speechServiceCount int = 50
+param speechServiceCount int = 1
 
 @description('The location of the Speech Service')
 param speechServiceLocation string = 'westeurope'
