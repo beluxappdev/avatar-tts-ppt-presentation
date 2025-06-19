@@ -22,7 +22,6 @@ A cloud-native application that transforms PowerPoint presentations into engagin
 2. Ensure you have access to an Azure subscription
 3. Docker - Follow the [official Docker installation instructions](https://docs.docker.com/get-started/get-docker/) - make sure your docker is loged in (docker login -u "username" -p "password"
  )
-4. Python version >= 3.10, < 3.13
 
 ### Step by step deployment
    
