@@ -16,7 +16,7 @@ setup(
         "aiofiles==24.1.0",
         "aiohttp ==3.11.18",
         "pdf2image==1.17.0",
-        "Pillow==11.2.1",
+        "Pillow==11.3.0",
         "python-pptx==1.0.2"
     ],
     python_requires=">=3.8",
