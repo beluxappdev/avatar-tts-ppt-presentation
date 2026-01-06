@@ -14,7 +14,7 @@ setup(
         "azure-core==1.34.0",
         "python-dotenv==1.1.0",
         "aiofiles==24.1.0",
-        "aiohttp ==3.11.18",
+        "aiohttp ==3.13.3",
         "pdf2image==1.17.0",
         "Pillow==11.2.1",
         "python-pptx==1.0.2"
