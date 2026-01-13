@@ -11,7 +11,7 @@ setup(
         "azure-servicebus==7.14.2",
         "azure-cosmos==4.9.0",
         "azure-identity==1.21.0",
-        "azure-core==1.34.0",
+        "azure-core==1.38.0",
         "python-dotenv==1.1.0",
         "aiofiles==24.1.0",
         "aiohttp ==3.11.18",
